@@ -176,6 +176,8 @@ void ParseCommandLine() {
 	// Get dir
 	dir = st;
 	dir.Replace("\"", "");
+	cout << "This application compresses all files in folder recursively and removes source files if compressed to smaller size\n";
+	cout << "Usage: [folder]\n";
 	cout << "Program path: " << my_path << "\n";
 	cout << "Program dir: " << my_dir << "\n";
 	cout << "Target dir: " << dir << "\n";
