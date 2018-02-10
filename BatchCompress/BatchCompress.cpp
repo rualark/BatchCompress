@@ -8,14 +8,36 @@
 #define new DEBUG_NEW
 #endif
 
-CString cmd_line, my_path, my_dir, path1, path2, ffmpeg_path;
+map<CString, char> allowed_ext;
+CString cmd_line, my_path, my_dir, dir, ffmpeg_path;
 int nRetCode = 0;
+int run_minimized = 1;
+CString est;
 
 // The one and only application object
 
 CWinApp theApp;
 
 using namespace std;
+
+__int64 FileSize(CString fname)
+{
+	HANDLE hFile = CreateFile(fname, GENERIC_READ,
+		FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING,
+		FILE_ATTRIBUTE_NORMAL, NULL);
+	if (hFile == INVALID_HANDLE_VALUE)
+		return -1; // error condition, could call GetLastError to find out more
+
+	LARGE_INTEGER size;
+	if (!GetFileSizeEx(hFile, &size))
+	{
+		CloseHandle(hFile);
+		return -1; // error condition, could call GetLastError to find out more
+	}
+
+	CloseHandle(hFile);
+	return size.QuadPart;
+}
 
 CString dir_from_path(CString path)
 {
@@ -48,10 +70,93 @@ bool fileExists(CString dirName_in)
 	return true;    // this is not a directory!
 }
 
+CString noext_from_path(CString path)
+{
+	string::size_type pos2 = string(path).find_last_of("./");
+	CString path2 = string(path).substr(0, pos2).c_str();
+	return path2;
+}
+
+// Start process, wait for some time. If process did not finish, this is an error
+int RunTimeout(CString path, CString par, int delay) {
+	DWORD ecode;
+	SHELLEXECUTEINFO sei = { 0 };
+	sei.cbSize = sizeof(SHELLEXECUTEINFO);
+	sei.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI;
+	sei.hwnd = NULL;
+	sei.lpVerb = NULL;
+	sei.lpFile = path;
+	sei.lpParameters = par;
+	sei.lpDirectory = NULL;
+	if (run_minimized) sei.nShow = SW_SHOWMINNOACTIVE;
+	else sei.nShow = SW_SHOWNORMAL;
+	sei.hInstApp = NULL;
+	ShellExecuteEx(&sei);
+	if (WaitForSingleObject(sei.hProcess, delay) == WAIT_TIMEOUT) {
+		cout << path + " " + par + ": Timeout waiting for process\n";
+		return 100;
+	}
+	if (!GetExitCodeProcess(sei.hProcess, &ecode)) ecode = 102;
+	if (ecode != 0 && ecode != STILL_ACTIVE) { // 259
+		cout << "Exit code " << ecode << ": " + path + " " + par + "\n";
+		return ecode;
+	}
+	return 0;
+}
+
+void ProcessFile(path path1) {
+	CString ext = path1.extension().string().c_str();
+	CString fname = path1.string().c_str();
+	ext.MakeLower();
+	if (!allowed_ext[ext]) {
+		cout << "- Ignore ext: " << path1 << "\n";
+		return;
+	}
+	long long size1 = FileSize(fname);
+	if (size1 < 100) {
+		cout << "Ignore small size: " << path1 << ": " << size1 << "\n";
+		return;
+	}
+	if (fname.Find("-converted.mp4") != -1) {
+		cout << "- Ignore converted: " << path1 << "\n";
+		return;
+	}
+	// Run
+	cout << "+ Process: " << path1 << "\n";
+	CString fname2 = noext_from_path(fname) + "-converted.mp4";
+	if (fileExists(fname2)) {
+		cout << "! Overwriting file: " + fname2 << "\n";
+	}
+	CString par;
+	par.Format("-y -v quiet -i \"%s\" -preset slow -crf 20 -b:a 128k \"%s\"",
+		fname, fname2);
+	int ret = RunTimeout(ffmpeg_path, par, 10*24*60*60*1000);
+	if (ret) {
+		cout << "! Error during running conversion: " << ret << "\n";
+	}
+	if (!fileExists(fname2)) {
+		cout << "! File not found: " + fname2 << "\n";
+		nRetCode = 13;
+		return;
+	}
+	long long size2 = FileSize(fname2);
+	if (size2 < 100) {
+		cout << "! Resulting size too small: " << size2 << "\n";
+		nRetCode = 14;
+		return;
+	}
+	if (size2 < size1) {
+		cout << "+ Compressed to " << round(size2 * 100.0 / size1) << "% from " << round(size1 / 1024 / 1024) << " Mb\n";
+		DeleteFile(fname);
+	}
+}
+
 void process() {
-	for (recursive_directory_iterator i(path1.GetBuffer()), end; i != end; ++i)
-		if (!is_directory(i->path()))
-			cout << i->path() << "\n";
+	for (recursive_directory_iterator i(dir.GetBuffer()), end; i != end; ++i)
+		if (!is_directory(i->path())) {
+			ProcessFile(i->path());
+			if (nRetCode) return;
+		}
 	// i->path().filename()
 }
 
@@ -68,25 +173,12 @@ void ParseCommandLine() {
 	my_dir = dir_from_path(my_path);
 	st = st.Mid(st.Find('"') + 1);
 	st.Trim();
-	// Get first path
-	if (st.Find(' ') < st.Find('"') || st.Find('"') == -1) {
-		path1 = st.Left(st.Find(' '));
-		st = st.Mid(st.Find(' '));
-	}
-	else {
-		st = st.Mid(st.Find('"') + 1);
-		path1 = st.Left(st.Find('"'));
-		st = st.Mid(st.Find('"') + 1);
-	}
-	// Get second path
-	st.Trim();
-	path2 = st;
-	path1.Replace("\"", "");
-	path2.Replace("\"", "");
+	// Get dir
+	dir = st;
+	dir.Replace("\"", "");
 	cout << "Program path: " << my_path << "\n";
 	cout << "Program dir: " << my_dir << "\n";
-	cout << "Path1: " << path1 << "\n";
-	cout << "Path2: " << path2 << "\n";
+	cout << "Target dir: " << dir << "\n";
 	ffmpeg_path = my_dir + "\\ffmpeg.exe";
 	// Check exists
 	if (!fileExists(ffmpeg_path)) {
@@ -94,32 +186,22 @@ void ParseCommandLine() {
 		nRetCode = 10;
 		return;
 	}
-	if (!dirExists(path1)) {
-		cout << "Not found dir " << path1 << "\n";
+	if (!dirExists(dir)) {
+		cout << "Not found dir " << dir << "\n";
 		nRetCode = 11;
 		return;
 	}
-	if (!dirExists(path2)) {
-		cout << "Not found dir " << path2 << "\n";
-		nRetCode = 12;
-		return;
-	}
-	/*
-	// Detect switches
-	while (st.GetLength() && st[0] == '-') {
-		pos = st.Find(' ');
-		st2 = st.Left(pos);
-		st = st.Right(st.GetLength() - pos - 1);
-		if (st2.Find("-test") == 0) {
-			CGLib::m_testing = 1;
-			if (st2.GetLength() > 6) CGLib::m_test_sec = atoi(st2.Right(st2.GetLength() - 6));
-		}
-		if (st2.Find("-job") == 0) {
-			CGLib::m_testing = 2;
-			if (st2.GetLength() > 5) CGLib::m_test_sec = atoi(st2.Right(st2.GetLength() - 5));
-		}
-	}
-	*/
+}
+
+void Init() {
+	allowed_ext[".wmv"] = 1;
+	allowed_ext[".avi"] = 1;
+	allowed_ext[".flv"] = 1;
+	allowed_ext[".mp4"] = 1;
+	allowed_ext[".asf"] = 1;
+	allowed_ext[".mov"] = 1;
+	allowed_ext[".3gp"] = 1;
+	allowed_ext[".m4v"] = 1;
 }
 
 int main() {
@@ -134,6 +216,7 @@ int main() {
       nRetCode = 1;
     }
     else {
+			Init();
 			ParseCommandLine();
 			if (!nRetCode) process();
     }
