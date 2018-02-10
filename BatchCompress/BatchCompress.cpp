@@ -1,3 +1,5 @@
+// This is an independent project of an individual developer. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
 // BatchCompress.cpp : Defines the entry point for the console application.
 //
 
@@ -44,6 +46,19 @@ CString dir_from_path(CString path)
 	string::size_type pos = string(path).find_last_of("\\/");
 	CString path2 = string(path).substr(0, pos).c_str();
 	return path2;
+}
+
+void AppendLineToFile(CString fname, CString st)
+{
+	ofstream outfile;
+	outfile.open(fname, ios_base::app);
+	outfile << st;
+	outfile.close();
+}
+
+void WriteLog(CString st) {
+	cout << st;
+	AppendLineToFile(my_dir + "\\BatchCompress.log", st);
 }
 
 bool dirExists(CString dirName_in)
@@ -146,7 +161,9 @@ void ProcessFile(path path1) {
 		return;
 	}
 	if (size2 < size1) {
-		cout << "+ Compressed to " << round(size2 * 100.0 / size1) << "% from " << round(size1 / 1024 / 1024) << " Mb\n";
+		est.Format("+ Compressed %s to %.0lf from %.0lf Mb\n",
+			path1, round(size2 * 100.0 / size1), round(size1 / 1024 / 1024));
+		WriteLog(est);
 		DeleteFile(fname);
 	}
 }
@@ -176,8 +193,15 @@ void ParseCommandLine() {
 	// Get dir
 	dir = st;
 	dir.Replace("\"", "");
+	// Get current dir
+	if (dir == "") {
+		TCHAR buffer[MAX_PATH];
+		GetCurrentDirectory(MAX_PATH, buffer);
+		dir = string(buffer).c_str();
+	}
 	cout << "This application compresses all files in folder recursively and removes source files if compressed to smaller size\n";
 	cout << "Usage: [folder]\n";
+	cout << "If started without parameter, will process current folder\n";
 	cout << "Program path: " << my_path << "\n";
 	cout << "Program dir: " << my_dir << "\n";
 	cout << "Target dir: " << dir << "\n";
