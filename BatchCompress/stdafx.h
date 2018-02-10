@@ -28,6 +28,33 @@
 
 #include <iostream>
 
+#include <cctype>
+#include <iomanip>
+#include <sstream>
+#include <string>
+
+#include <iostream>
+#include <conio.h>
+#include <map>
+#include <vector>
+#include <set>
+#include <queue>
+#include <mutex>
+#include <numeric>
+#include <initializer_list>
+#include <random>
+#include <algorithm>
+#include <fstream>
+#include <regex>
+#include <filesystem>
+using namespace std;
+#include <chrono>
+using namespace std::chrono;
+using namespace std::tr2::sys;
+#include "dirent.h"
+#include <windows.h>
+#include <tlhelp32.h>
+
 
 
 // TODO: reference additional headers your program requires here
