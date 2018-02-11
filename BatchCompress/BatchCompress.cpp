@@ -135,6 +135,13 @@ void ProcessFile(path path1) {
 		DeleteFile(fname);
 		return;
 	}
+	if (fname.Find("_2.jpg") != -1 || fname.Find("_2.JPG") != -1 ||
+		fname.Find("_3.jpg") != -1 || fname.Find("_3.JPG") != -1 || 
+		fname.Find("_4.jpg") != -1 || fname.Find("_4.JPG") != -1 || 
+		fname.Find("_5.jpg") != -1 || fname.Find("_5.JPG") != -1) {
+		cout << "- Ignore result: " << path1 << "\n";
+		return;
+	}
 	if (!video_ext[ext] && !image_ext[ext] && !jpeg_ext[ext]) {
 		cout << "- Ignore ext: " << path1 << "\n";
 		return;
@@ -197,13 +204,13 @@ void ProcessFile(path path1) {
 	}
 	if (size2 < size1) {
 		est.Format("+ Compressed %s to %.0lf%% from %.1lf Mb\n",
-			fname, round(size2 * 100.0 / size1), round(size1 / 1024 / 1024));
+			fname, size2 * 100.0 / size1, size1 / 1024.0 / 1024);
 		WriteLog(est);
 		DeleteFile(fname);
 	}
 	else {
 		est.Format("- Could not compress %s better (%.0lf%% from %.1lf Mb)\n",
-			fname, round(size2 * 100.0 / size1), round(size1 / 1024 / 1024));
+			fname, size2 * 100.0 / size1, size1 / 1024.0 / 1024);
 		cout << est;
 		DeleteFile(fname2);
 		rename(fname, fname3);
