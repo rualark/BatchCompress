@@ -178,13 +178,15 @@ void ProcessFile(path path1) {
 		return;
 	}
 	if (size2 < size1) {
-		est.Format("+ Compressed %s to %.0lf%% from %.0lf Mb\n",
+		est.Format("+ Compressed %s to %.0lf%% from %.1lf Mb\n",
 			fname, round(size2 * 100.0 / size1), round(size1 / 1024 / 1024));
 		WriteLog(est);
 		DeleteFile(fname);
 	}
 	else {
-		cout << "- Could not compress better: " + fname << "\n";
+		est.Format("- Could not compress %s better (%.0lf%% from %.1lf Mb)\n",
+			fname, round(size2 * 100.0 / size1), round(size1 / 1024 / 1024));
+		cout << est;
 		DeleteFile(fname2);
 		rename(fname, fname3);
 	}
@@ -202,7 +204,7 @@ void process() {
 void ParseCommandLine() {
 	cmd_line = ((CWinApp*)::AfxGetApp())->m_lpCmdLine;
 	//cout << cmd_line << "\n";
-	CString st, st2;
+	CString st;
 	st = cmd_line;
 	st.Trim();
 	int pos;
@@ -221,7 +223,7 @@ void ParseCommandLine() {
 		GetCurrentDirectory(MAX_PATH, buffer);
 		dir = string(buffer).c_str();
 	}
-	cout << "This application compresses all video files in folder recursively and removes source files if compressed to smaller size\n";
+	cout << "This application compresses all video and jpeg files in folder recursively and removes source files if compressed to smaller size\n";
 	cout << "Usage: [folder]\n";
 	cout << "If started without parameter, will process current folder\n";
 	cout << "Program path: " << my_path << "\n";
