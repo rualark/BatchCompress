@@ -189,10 +189,14 @@ void ProcessFile(path path1) {
 	}
 	if (ret) {
 		cout << "! Error during running conversion: " << ret << "\n";
+		DeleteFile(fname2);
+		rename(fname, fname3);
+		return;
 	}
 	if (!fileExists(fname2)) {
 		cout << "! File not found: " + fname2 << "\n";
-		nRetCode = 13;
+		DeleteFile(fname2);
+		rename(fname, fname3);
 		return;
 	}
 	long long size2 = FileSize(fname2);
