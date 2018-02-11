@@ -15,6 +15,12 @@ CString cmd_line, my_path, my_dir, dir, ffmpeg_path, magick_path;
 int nRetCode = 0;
 int run_minimized = 1;
 CString est;
+int parameter_found = 0;
+
+// Config
+CString ffmpeg_par_video = "-y -preset slow -crf 20 -b:a 128k";
+CString ffmpeg_par_image = "-y -q:v 2 -vf scale='min(1920,iw)':-2";
+CString magick_par_image = "-resize 1920";
 
 // The one and only application object
 
@@ -160,18 +166,18 @@ void ProcessFile(path path1) {
 	CString par;
 	int ret;
 	if (video_ext[ext]) {
-		par.Format("-y -i \"%s\" -preset slow -crf 20 -b:a 128k \"%s\"",
-			fname, fname2);
+		par.Format("-i \"%s\" %s \"%s\"",
+			fname, ffmpeg_par_video, fname2);
 		ret = RunTimeout(ffmpeg_path, par, 10 * 24 * 60 * 60 * 1000);
 	}
 	if (image_ext[ext]) {
-		par.Format("convert \"%s\" -resize 1920 \"%s\"",
-			fname, fname2);
+		par.Format("convert \"%s\" %s \"%s\"",
+			fname, magick_par_image, fname2);
 		ret = RunTimeout(magick_path, par, 10 * 24 * 60 * 60 * 1000);
 	}
 	if (jpeg_ext[ext]) {
-		par.Format("-y -i \"%s\" -q:v 2 -vf scale='min(1920,iw)':-2 \"%s\"",
-			fname, fname2);
+		par.Format("-i \"%s\" %s \"%s\"",
+			fname, ffmpeg_par_image, fname2);
 		ret = RunTimeout(ffmpeg_path, par, 10 * 24 * 60 * 60 * 1000);
 	}
 	if (ret) {
@@ -262,31 +268,88 @@ void ParseCommandLine() {
 }
 
 void Init() {
-	video_ext[".wmv"] = 1;
-	video_ext[".avi"] = 1;
-	video_ext[".flv"] = 1;
-	video_ext[".mp4"] = 1;
-	video_ext[".asf"] = 1;
-	video_ext[".mov"] = 1;
-	video_ext[".3gp"] = 1;
-	video_ext[".m4v"] = 1;
-	video_ext[".mpg"] = 1;
-
-	image_ext[".cr2"] = 1;
-	image_ext[".crw"] = 1;
-	image_ext[".arw"] = 1;
-	image_ext[".mrw"] = 1;
-	image_ext[".nef"] = 1;
-	image_ext[".orf"] = 1;
-	image_ext[".raf"] = 1;
-	image_ext[".x3f"] = 1;
-
 	jpeg_ext[".jpg"] = 1;
 	jpeg_ext[".jpeg"] = 1;
+}
 
-	remove_ext[".ithmb"] = 1;
-	remove_ext[".videocache"] = 1;
-	remove_ext[".dat"] = 1;
+void LoadVar(CString * sName, CString * sValue, char* sSearch, long long * Dest) {
+	if (*sName == sSearch) {
+		++parameter_found;
+		*Dest = atoll(*sValue);
+	}
+}
+
+void LoadVar(CString * sName, CString * sValue, char* sSearch, CString * Dest) {
+	if (*sName == sSearch) {
+		++parameter_found;
+		*Dest = *sValue;
+	}
+}
+
+void LoadConfig() {
+	CString st, st2, st3, cur_child;
+	ifstream fs;
+	CString fname = my_dir + "\\BatchCompress.pl";
+	// Check file exists
+	if (!fileExists(fname)) {
+		WriteLog("LoadConfig cannot find file: " + fname + "\n");
+		nRetCode = 3;
+		return;
+	}
+	fs.open(fname);
+	char pch[2550];
+	int pos = 0;
+	int i = 0;
+	while (fs.good()) {
+		i++;
+		// Get line
+		fs.getline(pch, 2550);
+		st = pch;
+		st.Replace("\"", "");
+		// Remove unneeded
+		pos = st.Find("#");
+		// Check if it is first symbol
+		if (pos == 0)	st = st.Left(pos);
+		pos = st.Find(" #");
+		// Check if it is after space
+		if (pos > -1)	st = st.Left(pos);
+		st.Trim();
+		pos = st.Find("=");
+		if (pos != -1) {
+			// Get variable name and value
+			st2 = st.Left(pos);
+			st3 = st.Mid(pos + 1);
+			st2.Trim();
+			st3.Trim();
+			st2.MakeLower();
+			// Load general variables
+			int idata = atoi(st2);
+			float fdata = atof(st3);
+			parameter_found = 0;
+			if (st2 == "image_ext") {
+				image_ext[st3] = 1;
+				++parameter_found;
+			}
+			if (st2 == "video_ext") {
+				video_ext[st3] = 1;
+				++parameter_found;
+			}
+			if (st2 == "remove_ext") {
+				remove_ext[st3] = 1;
+				++parameter_found;
+			}
+			LoadVar(&st2, &st3, "ffmpeg_par_video", &ffmpeg_par_video);
+			LoadVar(&st2, &st3, "ffmpeg_par_image", &ffmpeg_par_image);
+			LoadVar(&st2, &st3, "magick_par_image", &magick_par_image);
+			if (!parameter_found) {
+				WriteLog("Unrecognized parameter '" + st2 + "' = '" + st3 + "' in file " + fname + "\n");
+			}
+			if (nRetCode) break;
+		}
+	}
+	fs.close();
+	//est.Format("LoadConfig loaded %d lines from %s", i, fname);
+	//WriteLog(est);
 }
 
 int main() {
@@ -302,7 +365,8 @@ int main() {
     }
     else {
 			Init();
-			ParseCommandLine();
+			if (!nRetCode) ParseCommandLine();
+			if (!nRetCode) LoadConfig();
 			if (!nRetCode) process();
     }
   }
