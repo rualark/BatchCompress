@@ -10,7 +10,7 @@
 #define new DEBUG_NEW
 #endif
 
-map<CString, char> allowed_ext;
+map<CString, char> video_ext, image_ext;
 CString cmd_line, my_path, my_dir, dir, ffmpeg_path;
 int nRetCode = 0;
 int run_minimized = 1;
@@ -123,7 +123,7 @@ void ProcessFile(path path1) {
 	CString ext = path1.extension().string().c_str();
 	CString fname = path1.string().c_str();
 	ext.MakeLower();
-	if (!allowed_ext[ext]) {
+	if (!video_ext[ext] && !image_ext[ext]) {
 		cout << "- Ignore ext: " << path1 << "\n";
 		return;
 	}
@@ -132,24 +132,36 @@ void ProcessFile(path path1) {
 		cout << "Ignore small size: " << path1 << ": " << size1 << "\n";
 		return;
 	}
-	if (fname.Find("-converted.mp4") != -1) {
+	if (fname.Find("-conv.mp4") != -1 || fname.Find("-converted.mp4") != -1 ||
+		fname.Find("-conv.jpg") != -1) {
 		cout << "- Ignore converted: " << path1 << "\n";
 		return;
 	}
-	if (fname.Find("-noconv.mp4") != -1) {
+	if (fname.Find("-noconv.mp4") != -1 || fname.Find("-noconv.jpg") != -1) {
 		cout << "- Ignore noconv: " << path1 << "\n";
 		return;
 	}
 	// Run
 	cout << "+ Process: " << path1 << "\n";
-	CString fname2 = noext_from_path(fname) + "-converted.mp4";
+	CString fname2 = noext_from_path(fname) + "-conv";
+	if (video_ext[ext]) fname2 += ".mp4";
+	if (image_ext[ext]) fname2 += ".jpg";
+	CString fname3 = noext_from_path(fname) + "-noconv";
+	if (video_ext[ext]) fname3 += ".mp4";
+	if (image_ext[ext]) fname3 += ".jpg";
 	if (fileExists(fname2)) {
 		cout << "! Overwriting file: " + fname2 << "\n";
 	}
 	CString par;
-	par.Format("-y -v quiet -i \"%s\" -preset slow -crf 20 -b:a 128k \"%s\"",
-		fname, fname2);
-	int ret = RunTimeout(ffmpeg_path, par, 10*24*60*60*1000);
+	if (video_ext[ext]) {
+		par.Format("-y -i \"%s\" -preset slow -crf 20 -b:a 128k \"%s\"",
+			fname, fname2);
+	}
+	if (image_ext[ext]) {
+		par.Format("-y -i \"%s\" -q:v 2 -vf scale='min(1920,iw)':-2 \"%s\"",
+			fname, fname2);
+	}
+	int ret = RunTimeout(ffmpeg_path, par, 10 * 24 * 60 * 60 * 1000);
 	if (ret) {
 		cout << "! Error during running conversion: " << ret << "\n";
 	}
@@ -162,7 +174,7 @@ void ProcessFile(path path1) {
 	if (size2 < 100) {
 		cout << "! Resulting size too small: " << size2 << "\n";
 		DeleteFile(fname2);
-		rename(fname, noext_from_path(fname) + "-noconv.mp4");
+		rename(fname, fname3);
 		return;
 	}
 	if (size2 < size1) {
@@ -174,7 +186,7 @@ void ProcessFile(path path1) {
 	else {
 		cout << "- Could not compress better: " + fname << "\n";
 		DeleteFile(fname2);
-		rename(fname, noext_from_path(fname) + "-noconv.mp4");
+		rename(fname, fname3);
 	}
 }
 
@@ -230,14 +242,18 @@ void ParseCommandLine() {
 }
 
 void Init() {
-	allowed_ext[".wmv"] = 1;
-	allowed_ext[".avi"] = 1;
-	allowed_ext[".flv"] = 1;
-	allowed_ext[".mp4"] = 1;
-	allowed_ext[".asf"] = 1;
-	allowed_ext[".mov"] = 1;
-	allowed_ext[".3gp"] = 1;
-	allowed_ext[".m4v"] = 1;
+	video_ext[".wmv"] = 1;
+	video_ext[".avi"] = 1;
+	video_ext[".flv"] = 1;
+	video_ext[".mp4"] = 1;
+	video_ext[".asf"] = 1;
+	video_ext[".mov"] = 1;
+	video_ext[".3gp"] = 1;
+	video_ext[".m4v"] = 1;
+	video_ext[".mpg"] = 1;
+
+	image_ext[".jpg"] = 1;
+	image_ext[".jpeg"] = 1;
 }
 
 int main() {
