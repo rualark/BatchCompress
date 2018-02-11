@@ -136,6 +136,10 @@ void ProcessFile(path path1) {
 		cout << "- Ignore converted: " << path1 << "\n";
 		return;
 	}
+	if (fname.Find("-noconv.mp4") != -1) {
+		cout << "- Ignore noconv: " << path1 << "\n";
+		return;
+	}
 	// Run
 	cout << "+ Process: " << path1 << "\n";
 	CString fname2 = noext_from_path(fname) + "-converted.mp4";
@@ -157,14 +161,20 @@ void ProcessFile(path path1) {
 	long long size2 = FileSize(fname2);
 	if (size2 < 100) {
 		cout << "! Resulting size too small: " << size2 << "\n";
-		nRetCode = 14;
+		DeleteFile(fname2);
+		rename(fname, noext_from_path(fname) + "-noconv.mp4");
 		return;
 	}
 	if (size2 < size1) {
-		est.Format("+ Compressed %s to %.0lf from %.0lf Mb\n",
-			path1, round(size2 * 100.0 / size1), round(size1 / 1024 / 1024));
+		est.Format("+ Compressed %s to %.0lf%% from %.0lf Mb\n",
+			fname, round(size2 * 100.0 / size1), round(size1 / 1024 / 1024));
 		WriteLog(est);
 		DeleteFile(fname);
+	}
+	else {
+		cout << "- Could not compress better: " + fname << "\n";
+		DeleteFile(fname2);
+		rename(fname, noext_from_path(fname) + "-noconv.mp4");
 	}
 }
 
@@ -199,7 +209,7 @@ void ParseCommandLine() {
 		GetCurrentDirectory(MAX_PATH, buffer);
 		dir = string(buffer).c_str();
 	}
-	cout << "This application compresses all files in folder recursively and removes source files if compressed to smaller size\n";
+	cout << "This application compresses all video files in folder recursively and removes source files if compressed to smaller size\n";
 	cout << "Usage: [folder]\n";
 	cout << "If started without parameter, will process current folder\n";
 	cout << "Program path: " << my_path << "\n";
