@@ -10,8 +10,8 @@
 #define new DEBUG_NEW
 #endif
 
-map<CString, char> video_ext, image_ext;
-CString cmd_line, my_path, my_dir, dir, ffmpeg_path;
+map<CString, char> video_ext, jpeg_ext, image_ext, remove_ext;
+CString cmd_line, my_path, my_dir, dir, ffmpeg_path, magick_path;
 int nRetCode = 0;
 int run_minimized = 1;
 CString est;
@@ -123,7 +123,13 @@ void ProcessFile(path path1) {
 	CString ext = path1.extension().string().c_str();
 	CString fname = path1.string().c_str();
 	ext.MakeLower();
-	if (!video_ext[ext] && !image_ext[ext]) {
+	// Remove file
+	if (remove_ext[ext]) {
+		cout << "+ Remove file: " << path1 << "\n";
+		DeleteFile(fname);
+		return;
+	}
+	if (!video_ext[ext] && !image_ext[ext] && !jpeg_ext[ext]) {
 		cout << "- Ignore ext: " << path1 << "\n";
 		return;
 	}
@@ -145,23 +151,29 @@ void ProcessFile(path path1) {
 	cout << "+ Process: " << path1 << "\n";
 	CString fname2 = noext_from_path(fname) + "-conv";
 	if (video_ext[ext]) fname2 += ".mp4";
+	if (jpeg_ext[ext]) fname2 += ".jpg";
 	if (image_ext[ext]) fname2 += ".jpg";
-	CString fname3 = noext_from_path(fname) + "-noconv";
-	if (video_ext[ext]) fname3 += ".mp4";
-	if (image_ext[ext]) fname3 += ".jpg";
+	CString fname3 = noext_from_path(fname) + "-noconv" + ext;
 	if (fileExists(fname2)) {
 		cout << "! Overwriting file: " + fname2 << "\n";
 	}
 	CString par;
+	int ret;
 	if (video_ext[ext]) {
 		par.Format("-y -i \"%s\" -preset slow -crf 20 -b:a 128k \"%s\"",
 			fname, fname2);
+		ret = RunTimeout(ffmpeg_path, par, 10 * 24 * 60 * 60 * 1000);
 	}
 	if (image_ext[ext]) {
+		par.Format("convert \"%s\" -resize 1920 \"%s\"",
+			fname, fname2);
+		ret = RunTimeout(magick_path, par, 10 * 24 * 60 * 60 * 1000);
+	}
+	if (jpeg_ext[ext]) {
 		par.Format("-y -i \"%s\" -q:v 2 -vf scale='min(1920,iw)':-2 \"%s\"",
 			fname, fname2);
+		ret = RunTimeout(ffmpeg_path, par, 10 * 24 * 60 * 60 * 1000);
 	}
-	int ret = RunTimeout(ffmpeg_path, par, 10 * 24 * 60 * 60 * 1000);
 	if (ret) {
 		cout << "! Error during running conversion: " << ret << "\n";
 	}
@@ -230,9 +242,15 @@ void ParseCommandLine() {
 	cout << "Program dir: " << my_dir << "\n";
 	cout << "Target dir: " << dir << "\n";
 	ffmpeg_path = my_dir + "\\ffmpeg.exe";
+	magick_path = my_dir + "\\magick.exe";
 	// Check exists
 	if (!fileExists(ffmpeg_path)) {
 		cout << "Not found file " << ffmpeg_path << "\n";
+		nRetCode = 10;
+		return;
+	}
+	if (!fileExists(magick_path)) {
+		cout << "Not found file " << magick_path << "\n";
 		nRetCode = 10;
 		return;
 	}
@@ -254,8 +272,21 @@ void Init() {
 	video_ext[".m4v"] = 1;
 	video_ext[".mpg"] = 1;
 
-	image_ext[".jpg"] = 1;
-	image_ext[".jpeg"] = 1;
+	image_ext[".cr2"] = 1;
+	image_ext[".crw"] = 1;
+	image_ext[".arw"] = 1;
+	image_ext[".mrw"] = 1;
+	image_ext[".nef"] = 1;
+	image_ext[".orf"] = 1;
+	image_ext[".raf"] = 1;
+	image_ext[".x3f"] = 1;
+
+	jpeg_ext[".jpg"] = 1;
+	jpeg_ext[".jpeg"] = 1;
+
+	remove_ext[".ithmb"] = 1;
+	remove_ext[".videocache"] = 1;
+	remove_ext[".dat"] = 1;
 }
 
 int main() {
