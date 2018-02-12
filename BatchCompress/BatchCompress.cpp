@@ -14,6 +14,7 @@ map<CString, char> video_ext, jpeg_ext, image_ext, remove_ext;
 CString cmd_line, my_path, my_dir, dir, ffmpeg_path, magick_path;
 int nRetCode = 0;
 int run_minimized = 1;
+int ignore_2 = 1;
 CString est;
 int parameter_found = 0;
 
@@ -129,6 +130,9 @@ void ProcessFile(path path1) {
 	CString ext = path1.extension().string().c_str();
 	CString fname = path1.string().c_str();
 	ext.MakeLower();
+	// Remove read-only attribute for all files, because it prevents file deletion
+	SetFileAttributes(fname,
+		GetFileAttributes(fname) & ~FILE_ATTRIBUTE_READONLY);
 	// Remove file
 	if (remove_ext[ext]) {
 		cout << "+ Remove file: " << path1 << "\n";
@@ -156,7 +160,7 @@ void ProcessFile(path path1) {
 		cout << "- Ignore converted: " << path1 << "\n";
 		return;
 	}
-	if (fname.Find("-noconv.mp4") != -1 || fname.Find("-noconv.jpg") != -1) {
+	if (fname.Find("-noconv.") != -1 || fname.Find("-noconv.") != -1) {
 		cout << "- Ignore noconv: " << path1 << "\n";
 		return;
 	}
@@ -283,7 +287,7 @@ void Init() {
 	jpeg_ext[".jpeg"] = 1;
 }
 
-void LoadVar(CString * sName, CString * sValue, char* sSearch, long long * Dest) {
+void LoadVar(CString * sName, CString * sValue, char* sSearch, int * Dest) {
 	if (*sName == sSearch) {
 		++parameter_found;
 		*Dest = atoll(*sValue);
@@ -352,6 +356,7 @@ void LoadConfig() {
 			LoadVar(&st2, &st3, "ffmpeg_par_video", &ffmpeg_par_video);
 			LoadVar(&st2, &st3, "ffmpeg_par_image", &ffmpeg_par_image);
 			LoadVar(&st2, &st3, "magick_par_image", &magick_par_image);
+			LoadVar(&st2, &st3, "ignore_2", &ignore_2);
 			if (!parameter_found) {
 				WriteLog("Unrecognized parameter '" + st2 + "' = '" + st3 + "' in file " + fname + "\n");
 			}
