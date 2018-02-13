@@ -304,7 +304,13 @@ void LoadVar(CString * sName, CString * sValue, char* sSearch, CString * Dest) {
 void LoadConfig() {
 	CString st, st2, st3, cur_child;
 	ifstream fs;
-	CString fname = my_dir + "\\BatchCompress.pl";
+	CString fname = dir + "\\BatchCompress.pl";
+	if (fileExists(fname)) {
+		WriteLog("Detected local config file: " + fname + "\n");
+	}
+	else {
+		fname = my_dir + "\\BatchCompress.pl";
+	}
 	// Check file exists
 	if (!fileExists(fname)) {
 		WriteLog("LoadConfig cannot find file: " + fname + "\n");
