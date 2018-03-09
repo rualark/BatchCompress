@@ -11,7 +11,7 @@
 #endif
 
 map<CString, char> video_ext, jpeg_ext, image_ext, remove_ext;
-CString cmd_line, my_path, my_dir, dir, ffmpeg_path, magick_path;
+CString cmd_line, my_path, my_dir, dir, ffmpeg_path, magick_path, lnkedit_path;
 int nRetCode = 0;
 int run_minimized = 1;
 int ignore_2 = 1;
@@ -92,10 +92,51 @@ bool fileExists(CString dirName_in)
 	return true;    // this is not a directory!
 }
 
+void read_file_sv(CString fname, vector<CString> &sv) {
+	// Load file
+	ifstream fs;
+	if (!fileExists(fname)) {
+		cout << "Cannot find file " + fname + "\n";
+		return;
+	}
+	fs.open(fname);
+	char pch[2550];
+	CString st2;
+	sv.clear();
+	while (fs.good()) {
+		fs.getline(pch, 2550);
+		st2 = pch;
+		sv.push_back(st2);
+	}
+	fs.close();
+}
+
 CString noext_from_path(CString path)
 {
-	string::size_type pos2 = string(path).find_last_of("./");
+	string::size_type pos2 = string(path).find_last_of(".");
 	CString path2 = string(path).substr(0, pos2).c_str();
+	return path2;
+}
+
+CString ext_from_path(CString path)
+{
+	string::size_type pos2 = string(path).find_last_of("./");
+	CString path2 = string(path).substr(pos2 + 1, path.GetLength()).c_str();
+	return path2;
+}
+
+CString fname_from_path(CString path)
+{
+	string::size_type pos = string(path).find_last_of("\\/");
+	CString path2 = string(path).substr(pos + 1).c_str();
+	return path2;
+}
+
+CString bname_from_path(CString path)
+{
+	string::size_type pos = string(path).find_last_of("\\/");
+	string::size_type pos2 = string(path).find_last_of("./");
+	CString path2 = string(path).substr(pos + 1, pos2 - pos - 1).c_str();
 	return path2;
 }
 
@@ -127,12 +168,95 @@ int RunTimeout(CString path, CString par, int delay) {
 }
 
 void ProcessFile(path path1) {
+	CString par, st, st2, st3;
+	int ret;
 	CString ext = path1.extension().string().c_str();
 	CString fname = path1.string().c_str();
+	CString fnoext = noext_from_path(fname);
 	ext.MakeLower();
 	// Remove read-only attribute for all files, because it prevents file deletion
 	SetFileAttributes(fname,
 		GetFileAttributes(fname) & ~FILE_ATTRIBUTE_READONLY);
+	// Process link
+	if (ext == ".lnk") {
+		// Read link
+		cout << "Detected link: " << fname << "\n";
+		//cout << "Noext: " << fnoext << "\n";
+		CString lnk_path = fnoext + ".lnk-nfo";
+		par.Format("\"%s\" \"%s\" \"%s\"", lnkedit_path, fname, lnk_path);
+		//cout << "Run: " << my_dir + "\\lnkedit2.bat " << par << "\n";
+		ret = RunTimeout(my_dir + "\\lnkedit2.bat", par, 60 * 1000);
+		if (ret) {
+			cout << "! Error during reading lnk: " << ret << "\n";
+			DeleteFile(lnk_path);
+			return;
+		}
+		vector <CString> sv;
+		read_file_sv(lnk_path, sv);
+		int found = 0;
+		for (int i = 0; i < sv.size(); ++i) {
+			if (sv[i].Find(":") == -1) continue;
+			st = sv[i].Left(sv[i].Find(":"));
+			st.Trim();
+			if (st != "Target") continue;
+			st = sv[i].Mid(sv[i].Find(":") + 1);
+			st.Trim();
+			cout << "Found target: " << st << "\n";
+			found = 1;
+			break;
+		}
+		if (!found) {
+			cout << "! Error during reading lnk: no target detected\n";
+			DeleteFile(lnk_path);
+			return;
+		}
+		DeleteFile(lnk_path);
+		if (fileExists(st)) {
+			cout << "Target exists: " + st + "\n";
+			return;
+		}
+		st3 = fname_from_path(st);
+		st3.Replace("(", "\\(");
+		st3.Replace(")", "\\)");
+		st3.Replace("[", "\\[");
+		st3.Replace("]", "\\]");
+		st3.Replace("+", "\\+");
+		st2 = noext_from_path(st) + "-conv." + ext_from_path(st);
+		if (fileExists(st2)) {
+			cout << "Target exists conv: " + st2 + "\n";
+			par.Format("\"%s\" \"%s\" \"%s\"", fname, st3, fname_from_path(st2));
+			cout << "Run: " << lnkedit_path << " " << par << "\n";
+			ret = RunTimeout(lnkedit_path, par, 60 * 1000);
+			return;
+		}
+		st2 = noext_from_path(st) + "-noconv." + ext_from_path(st);
+		if (fileExists(st2)) {
+			cout << "Target exists noconv: " + st2 + "\n";
+			par.Format("\"%s\" \"%s\" \"%s\"", fname, st3, fname_from_path(st2));
+			cout << "Run: " << lnkedit_path << " " << par << "\n";
+			ret = RunTimeout(lnkedit_path, par, 60 * 1000);
+			return;
+		}
+		st2 = noext_from_path(st) + "-conv.jpg";
+		if (fileExists(st2)) {
+			cout << "Target exists conv: " + st2 + "\n";
+			par.Format("\"%s\" \"%s\" \"%s\"", fname, st3, fname_from_path(st2));
+			cout << "Run: " << lnkedit_path << " " << par << "\n";
+			ret = RunTimeout(lnkedit_path, par, 60 * 1000);
+			return;
+		}
+		st2 = noext_from_path(st) + "-noconv.jpg";
+		if (fileExists(st2)) {
+			cout << "Target exists noconv: " + st2 + "\n";
+			par.Format("\"%s\" \"%s\" \"%s\"", fname, st3, fname_from_path(st2));
+			cout << "Run: " << lnkedit_path << " " << par << "\n";
+			ret = RunTimeout(lnkedit_path, par, 60 * 1000);
+			return;
+		}
+		cout << "Could not detect similar file\n";
+		abort();
+		return;
+	}
 	// Remove file
 	if (remove_ext[ext]) {
 		cout << "+ Remove file: " << path1 << "\n";
@@ -166,16 +290,14 @@ void ProcessFile(path path1) {
 	}
 	// Run
 	cout << "+ Process: " << path1 << "\n";
-	CString fname2 = noext_from_path(fname) + "-conv";
+	CString fname2 = fnoext + "-conv";
 	if (video_ext[ext]) fname2 += ".mp4";
 	if (jpeg_ext[ext]) fname2 += ".jpg";
 	if (image_ext[ext]) fname2 += ".jpg";
-	CString fname3 = noext_from_path(fname) + "-noconv" + ext;
+	CString fname3 = fnoext + "-noconv" + ext;
 	if (fileExists(fname2)) {
 		cout << "! Overwriting file: " + fname2 << "\n";
 	}
-	CString par;
-	int ret;
 	if (video_ext[ext]) {
 		par.Format("-i \"%s\" %s \"%s\"",
 			fname, ffmpeg_par_video, fname2);
@@ -264,6 +386,8 @@ void ParseCommandLine() {
 	cout << "Target dir: " << dir << "\n";
 	ffmpeg_path = my_dir + "\\ffmpeg.exe";
 	magick_path = my_dir + "\\magick.exe";
+	lnkedit_path = my_dir + "\\lnkedit.exe";
+	SetCurrentDirectory(my_dir);
 	// Check exists
 	if (!fileExists(ffmpeg_path)) {
 		cout << "Not found file " << ffmpeg_path << "\n";
