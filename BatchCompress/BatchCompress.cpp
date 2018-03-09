@@ -225,7 +225,7 @@ void ProcessFile(path path1) {
 		if (fileExists(st2)) {
 			cout << "Target exists conv: " + st2 + "\n";
 			par.Format("\"%s\" \"%s\" \"%s\"", fname, st3, fname_from_path(st2));
-			cout << "Run: " << lnkedit_path << " " << par << "\n";
+			//cout << "Run: " << lnkedit_path << " " << par << "\n";
 			ret = RunTimeout(lnkedit_path, par, 60 * 1000);
 			return;
 		}
@@ -233,7 +233,7 @@ void ProcessFile(path path1) {
 		if (fileExists(st2)) {
 			cout << "Target exists noconv: " + st2 + "\n";
 			par.Format("\"%s\" \"%s\" \"%s\"", fname, st3, fname_from_path(st2));
-			cout << "Run: " << lnkedit_path << " " << par << "\n";
+			//cout << "Run: " << lnkedit_path << " " << par << "\n";
 			ret = RunTimeout(lnkedit_path, par, 60 * 1000);
 			return;
 		}
@@ -241,7 +241,7 @@ void ProcessFile(path path1) {
 		if (fileExists(st2)) {
 			cout << "Target exists conv: " + st2 + "\n";
 			par.Format("\"%s\" \"%s\" \"%s\"", fname, st3, fname_from_path(st2));
-			cout << "Run: " << lnkedit_path << " " << par << "\n";
+			//cout << "Run: " << lnkedit_path << " " << par << "\n";
 			ret = RunTimeout(lnkedit_path, par, 60 * 1000);
 			return;
 		}
@@ -249,12 +249,12 @@ void ProcessFile(path path1) {
 		if (fileExists(st2)) {
 			cout << "Target exists noconv: " + st2 + "\n";
 			par.Format("\"%s\" \"%s\" \"%s\"", fname, st3, fname_from_path(st2));
-			cout << "Run: " << lnkedit_path << " " << par << "\n";
+			//cout << "Run: " << lnkedit_path << " " << par << "\n";
 			ret = RunTimeout(lnkedit_path, par, 60 * 1000);
 			return;
 		}
 		cout << "Could not detect similar file\n";
-		abort();
+		//abort();
 		return;
 	}
 	// Remove file
