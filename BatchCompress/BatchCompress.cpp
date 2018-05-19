@@ -495,7 +495,7 @@ void LoadConfig() {
 				++parameter_found;
 			}
 			LoadVar(&st2, &st3, "ffmpeg_par_audio", &ffmpeg_par_audio);
-			LoadVar(&st2, &st3, "ffmpeg_par_audio", &ffmpeg_par_video);
+			LoadVar(&st2, &st3, "ffmpeg_par_video", &ffmpeg_par_video);
 			LoadVar(&st2, &st3, "ffmpeg_par_image", &ffmpeg_par_image);
 			LoadVar(&st2, &st3, "magick_par_image", &magick_par_image);
 			LoadVar(&st2, &st3, "ignore_2", &ignore_2);
