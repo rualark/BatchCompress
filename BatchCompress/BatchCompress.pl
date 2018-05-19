@@ -1,4 +1,5 @@
 # Parameters for conversion
+ffmpeg_par_audio = "-y -vn -ar 44100 -ac 2 -f mp3 -ab 128k"
 ffmpeg_par_video = "-y -preset slow -crf 20 -b:a 128k"
 ffmpeg_par_image = "-y -q:v 2 -vf scale='min(1920,iw)':-2"
 magick_par_image = "-resize 1920"
@@ -24,8 +25,11 @@ video_ext = ".3gp"
 video_ext = ".m4v"
 video_ext = ".3gp"
 
+# File extensions to convert to MP3
+audio_ext = ".wav"
+
 # File extensions to delete
-video_ext = ".ithmb"
-video_ext = ".videocache"
-video_ext = ".dat"
-video_ext = ".thm"
+remove_ext = ".ithmb"
+remove_ext = ".videocache"
+remove_ext = ".dat"
+remove_ext = ".thm"

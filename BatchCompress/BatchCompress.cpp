@@ -10,7 +10,7 @@
 #define new DEBUG_NEW
 #endif
 
-map<CString, char> video_ext, jpeg_ext, image_ext, remove_ext;
+map<CString, char> audio_ext, video_ext, jpeg_ext, image_ext, remove_ext;
 CString cmd_line, my_path, my_dir, dir, ffmpeg_path, magick_path, lnkedit_path;
 int nRetCode = 0;
 int run_minimized = 1;
@@ -19,6 +19,7 @@ CString est;
 int parameter_found = 0;
 
 // Config
+CString ffmpeg_par_audio = "-y -vn -ar 44100 -ac 2 -f mp3 -ab 192k";
 CString ffmpeg_par_video = "-y -preset slow -crf 20 -b:a 128k";
 CString ffmpeg_par_image = "-y -q:v 2 -vf scale='min(1920,iw)':-2";
 CString magick_par_image = "-resize 1920";
@@ -270,7 +271,7 @@ void ProcessFile(path path1) {
 		cout << "- Ignore result: " << path1 << "\n";
 		return;
 	}
-	if (!video_ext[ext] && !image_ext[ext] && !jpeg_ext[ext]) {
+	if (!video_ext[ext] && !image_ext[ext] && !jpeg_ext[ext] && !audio_ext[ext]) {
 		cout << "- Ignore ext: " << path1 << "\n";
 		return;
 	}
@@ -294,6 +295,7 @@ void ProcessFile(path path1) {
 	if (video_ext[ext]) fname2 += ".mp4";
 	if (jpeg_ext[ext]) fname2 += ".jpg";
 	if (image_ext[ext]) fname2 += ".jpg";
+	if (audio_ext[ext]) fname2 += ".mp3";
 	CString fname3 = fnoext + "-noconv" + ext;
 	if (fileExists(fname2)) {
 		cout << "! Overwriting file: " + fname2 << "\n";
@@ -311,6 +313,11 @@ void ProcessFile(path path1) {
 	if (jpeg_ext[ext]) {
 		par.Format("-i \"%s\" %s \"%s\"",
 			fname, ffmpeg_par_image, fname2);
+		ret = RunTimeout(ffmpeg_path, par, 10 * 24 * 60 * 60 * 1000);
+	}
+	if (audio_ext[ext]) {
+		par.Format("-i \"%s\" %s \"%s\"",
+			fname, ffmpeg_par_audio, fname2);
 		ret = RunTimeout(ffmpeg_path, par, 10 * 24 * 60 * 60 * 1000);
 	}
 	if (ret) {
@@ -483,7 +490,12 @@ void LoadConfig() {
 				remove_ext[st3] = 1;
 				++parameter_found;
 			}
-			LoadVar(&st2, &st3, "ffmpeg_par_video", &ffmpeg_par_video);
+			if (st2 == "audio_ext") {
+				audio_ext[st3] = 1;
+				++parameter_found;
+			}
+			LoadVar(&st2, &st3, "ffmpeg_par_audio", &ffmpeg_par_audio);
+			LoadVar(&st2, &st3, "ffmpeg_par_audio", &ffmpeg_par_video);
 			LoadVar(&st2, &st3, "ffmpeg_par_image", &ffmpeg_par_image);
 			LoadVar(&st2, &st3, "magick_par_image", &magick_par_image);
 			LoadVar(&st2, &st3, "ignore_2", &ignore_2);
