@@ -27,6 +27,8 @@ video_ext = ".3gp"
 
 # File extensions to convert to MP3
 audio_ext = ".wav"
+audio_ext = ".wma"
+audio_ext = ".mp3"
 
 # File extensions to delete
 remove_ext = ".ithmb"
