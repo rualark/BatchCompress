@@ -23,6 +23,7 @@ CString ffmpeg_par_audio = "-y -vn -ar 44100 -ac 2 -f mp3 -ab 192k";
 CString ffmpeg_par_video = "-y -preset slow -crf 20 -b:a 128k";
 CString ffmpeg_par_image = "-y -q:v 2 -vf scale='min(1920,iw)':-2";
 CString magick_par_image = "-resize 1920";
+int process_links = 0;
 
 // The one and only application object
 
@@ -179,7 +180,7 @@ void ProcessFile(path path1) {
 	SetFileAttributes(fname,
 		GetFileAttributes(fname) & ~FILE_ATTRIBUTE_READONLY);
 	// Process link
-	if (ext == ".lnk") {
+	if (ext == ".lnk" && process_links == 1) {
 		// Read link
 		cout << "Detected link: " << fname << "\n";
 		//cout << "Noext: " << fnoext << "\n";
@@ -260,7 +261,7 @@ void ProcessFile(path path1) {
 	}
 	// Remove file
 	if (remove_ext[ext]) {
-		cout << "+ Remove file: " << path1 << "\n";
+		WriteLog("+ Remove file: " + fname);
 		DeleteFile(fname);
 		return;
 	}
@@ -499,6 +500,7 @@ void LoadConfig() {
 			LoadVar(&st2, &st3, "ffmpeg_par_image", &ffmpeg_par_image);
 			LoadVar(&st2, &st3, "magick_par_image", &magick_par_image);
 			LoadVar(&st2, &st3, "ignore_2", &ignore_2);
+			LoadVar(&st2, &st3, "process_links", &process_links);
 			if (!parameter_found) {
 				WriteLog("Unrecognized parameter '" + st2 + "' = '" + st3 + "' in file " + fname + "\n");
 			}

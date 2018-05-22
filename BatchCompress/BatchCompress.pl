@@ -4,6 +4,9 @@ ffmpeg_par_video = "-y -preset slow -crf 20 -b:a 128k"
 ffmpeg_par_image = "-y -q:v 2 -vf scale='min(1920,iw)':-2"
 magick_par_image = "-resize 1920"
 
+# Enable modules
+process_links = 0
+
 # File extensions to convert to jpeg
 image_ext = ".cr2"
 image_ext = ".crw"
@@ -35,3 +38,5 @@ remove_ext = ".ithmb"
 remove_ext = ".videocache"
 remove_ext = ".dat"
 remove_ext = ".thm"
+remove_ext = ".tmp"
+remove_ext = ".peak"
