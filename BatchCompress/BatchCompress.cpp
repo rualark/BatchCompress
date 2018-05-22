@@ -286,7 +286,7 @@ void ProcessFile(path path1) {
 		cout << "- Ignore converted: " << path1 << "\n";
 		return;
 	}
-	if (fname.Find("-noconv.") != -1 || fname.Find("-noconv.") != -1) {
+	if (fname.Find("-noconv.") != -1) {
 		cout << "- Ignore noconv: " << path1 << "\n";
 		return;
 	}
@@ -370,7 +370,6 @@ void ParseCommandLine() {
 	CString st;
 	st = cmd_line;
 	st.Trim();
-	int pos;
 	// Get my path
 	st = st.Mid(st.Find('"') + 1);
 	my_path = st.Left(st.Find('"'));
