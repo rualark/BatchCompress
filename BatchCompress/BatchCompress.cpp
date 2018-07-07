@@ -11,7 +11,7 @@
 #endif
 
 map<CString, char> audio_ext, video_ext, jpeg_ext, image_ext, remove_ext;
-CString cmd_line, my_path, my_dir, dir, ffmpeg_path, magick_path, lnkedit_path;
+CString cmd_line, my_path, my_dir, dir, ffmpeg_path, magick_path, lnkedit_path, exiftool_path;
 int nRetCode = 0;
 int run_minimized = 1;
 int ignore_2 = 1;
@@ -179,7 +179,7 @@ void ProcessFile(path path1) {
 	// Remove read-only attribute for all files, because it prevents file deletion
 	SetFileAttributes(fname,
 		GetFileAttributes(fname) & ~FILE_ATTRIBUTE_READONLY);
-	// Process link
+	// Fix link
 	if (ext == ".lnk" && process_links == 1) {
 		// Read link
 		cout << "Detected link: " << fname << "\n";
@@ -259,9 +259,54 @@ void ProcessFile(path path1) {
 		//abort();
 		return;
 	}
+	// Copy file to link
+	if (ext == ".lnk" && process_links == 2) {
+		// Read link
+		cout << "Detected link: " << fname << "\n";
+		//cout << "Noext: " << fnoext << "\n";
+		CString lnk_path = fnoext + ".lnk-nfo";
+		par.Format("\"%s\" \"%s\" \"%s\"", lnkedit_path, fname, lnk_path);
+		//cout << "Run: " << my_dir + "\\lnkedit2.bat " << par << "\n";
+		ret = RunTimeout(my_dir + "\\lnkedit2.bat", par, 60 * 1000);
+		if (ret) {
+			cout << "! Error during reading lnk: " << ret << "\n";
+			DeleteFile(lnk_path);
+			return;
+		}
+		vector <CString> sv;
+		read_file_sv(lnk_path, sv);
+		int found = 0;
+		for (int i = 0; i < sv.size(); ++i) {
+			if (sv[i].Find(":") == -1) continue;
+			st = sv[i].Left(sv[i].Find(":"));
+			st.Trim();
+			if (st != "Target") continue;
+			st = sv[i].Mid(sv[i].Find(":") + 1);
+			st.Trim();
+			cout << "Found target: " << st << "\n";
+			found = 1;
+			break;
+		}
+		if (!found) {
+			cout << "! Error during reading lnk: no target detected\n";
+			DeleteFile(lnk_path);
+			return;
+		}
+		DeleteFile(lnk_path);
+		if (fileExists(st)) {
+			cout << "Target exists: " + st + "\n";
+			st3 = fname;
+			st3.Replace(".lnk", "");
+			copy(st.GetBuffer(), st3.GetBuffer());
+			DeleteFile(fname);
+			return;
+		}
+		// Do nothing if link is bad
+		return;
+	}
 	// Remove file
 	if (remove_ext[ext]) {
-		WriteLog("+ Remove file: " + fname);
+		WriteLog("+ Remove file: " + fname + "\n");
 		DeleteFile(fname);
 		return;
 	}
@@ -282,7 +327,7 @@ void ProcessFile(path path1) {
 		return;
 	}
 	if (fname.Find("-conv.mp4") != -1 || fname.Find("-converted.mp4") != -1 ||
-		fname.Find("-conv.jpg") != -1) {
+		fname.Find("-conv.jpg") != -1 || fname.Find("-conv.mp3") != -1) {
 		cout << "- Ignore converted: " << path1 << "\n";
 		return;
 	}
@@ -344,6 +389,23 @@ void ProcessFile(path path1) {
 		est.Format("+ Compressed %s to %.0lf%% from %.1lf Mb\n",
 			fname, size2 * 100.0 / size1, size1 / 1024.0 / 1024);
 		WriteLog(est);
+		// Copy exif
+		if (jpeg_ext[ext]) {
+			par.Format("-tagsFromFile \"%s\" \"%s\"",
+				fname, fname2);
+			ret = RunTimeout(exiftool_path, par, 10 * 24 * 60 * 60 * 1000);
+			if (ret) {
+				cout << "! Error copying exif tags: " << ret << "\n";
+				DeleteFile(fname2);
+				return;
+			}
+			if (!fileExists(fname2 + "_original")) {
+				cout << "! File not found: " + fname2 << "_original\n";
+				DeleteFile(fname2);
+				return;
+			}
+			DeleteFile(fname2 + "_original");
+		}
 		DeleteFile(fname);
 	}
 	else {
@@ -380,20 +442,23 @@ void ParseCommandLine() {
 	dir = st;
 	dir.Replace("\"", "");
 	// Get current dir
+	TCHAR buffer[MAX_PATH];
+	GetCurrentDirectory(MAX_PATH, buffer);
+	CString cur_dir = string(buffer).c_str();
 	if (dir == "") {
-		TCHAR buffer[MAX_PATH];
-		GetCurrentDirectory(MAX_PATH, buffer);
-		dir = string(buffer).c_str();
+		dir = cur_dir;
 	}
 	cout << "This application compresses all video and jpeg files in folder recursively and removes source files if compressed to smaller size\n";
 	cout << "Usage: [folder]\n";
 	cout << "If started without parameter, will process current folder\n";
 	cout << "Program path: " << my_path << "\n";
 	cout << "Program dir: " << my_dir << "\n";
+	cout << "Current dir: " << cur_dir << "\n";
 	cout << "Target dir: " << dir << "\n";
 	ffmpeg_path = my_dir + "\\ffmpeg.exe";
 	magick_path = my_dir + "\\magick.exe";
 	lnkedit_path = my_dir + "\\lnkedit.exe";
+	exiftool_path = my_dir + "\\exiftool.exe";
 	SetCurrentDirectory(my_dir);
 	// Check exists
 	if (!fileExists(ffmpeg_path)) {

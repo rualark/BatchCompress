@@ -4,8 +4,11 @@ ffmpeg_par_video = "-y -preset slow -crf 20 -b:a 128k"
 ffmpeg_par_image = "-y -q:v 2 -vf scale='min(1920,iw)':-2"
 magick_par_image = "-resize 1920"
 
+# Main
+#ignore_2 = 1 # Set to 1 to ignore files *_2.jpg, *_3.jpg, *_4.jpg...
+
 # Enable modules
-process_links = 0
+process_links = 2
 
 # File extensions to convert to jpeg
 image_ext = ".cr2"
@@ -16,8 +19,10 @@ image_ext = ".nef"
 image_ext = ".orf"
 image_ext = ".raf"
 image_ext = ".x3f"
+image_ext = ".bmp"
 
 # File extensions to convert to mp4
+video_ext = ".vob"
 video_ext = ".wmv"
 video_ext = ".avi"
 video_ext = ".flv"
@@ -30,7 +35,6 @@ video_ext = ".3gp"
 
 # File extensions to convert to MP3
 audio_ext = ".wav"
-audio_ext = ".wma"
 audio_ext = ".mp3"
 
 # File extensions to delete
