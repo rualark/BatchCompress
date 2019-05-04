@@ -432,7 +432,7 @@ void process() {
 			if (nRetCode) return;
 		}
 	}
-	cout << "Processed " << i << " files\n";
+	cout << "Processed " << i << "files\n";
 }
 
 void ParseCommandLine() {

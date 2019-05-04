@@ -8,7 +8,13 @@ magick_par_image = "-resize 1920"
 #ignore_2 = 1 # Set to 1 to ignore files *_2.jpg, *_3.jpg, *_4.jpg...
 
 # Enable modules
+# process_links=0: Do not process links
+# process_links=1: Fix links
+# process_links=2: Replace links with linked files
 process_links = 2
+# save_exif=0: Do not save exif when processing (can process faster)
+# save_exif=1: Save exif when processing
+save_exif = 1
 
 # File extensions to convert to jpeg
 image_ext = ".cr2"
