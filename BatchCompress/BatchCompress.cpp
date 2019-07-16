@@ -26,6 +26,8 @@ CString magick_par_image = "-resize 1920";
 int process_links = 0;
 int save_exif = 0;
 
+long long space_release = 0;
+
 // The one and only application object
 
 CWinApp theApp;
@@ -195,6 +197,7 @@ void ProcessFile(path path1) {
 		ret = RunTimeout(my_dir + "\\lnkedit2.bat", par, 60 * 1000);
 		if (ret) {
 			cout << "! Error during reading lnk: " << ret << "\n";
+			space_release += FileSize(lnk_path);
 			RemoveReadonlyAndDelete(lnk_path);
 			return;
 		}
@@ -214,9 +217,11 @@ void ProcessFile(path path1) {
 		}
 		if (!found) {
 			cout << "! Error during reading lnk: no target detected\n";
+			space_release += FileSize(lnk_path);
 			RemoveReadonlyAndDelete(lnk_path);
 			return;
 		}
+		space_release += FileSize(lnk_path);
 		RemoveReadonlyAndDelete(lnk_path);
 		if (fileExists(st)) {
 			cout << "Target exists: " + st + "\n";
@@ -275,6 +280,7 @@ void ProcessFile(path path1) {
 		ret = RunTimeout(my_dir + "\\lnkedit2.bat", par, 60 * 1000);
 		if (ret) {
 			cout << "! Error during reading lnk: " << ret << "\n";
+			space_release += FileSize(lnk_path);
 			RemoveReadonlyAndDelete(lnk_path);
 			return;
 		}
@@ -294,14 +300,18 @@ void ProcessFile(path path1) {
 		}
 		if (!found) {
 			cout << "! Error during reading lnk: no target detected\n";
+			space_release += FileSize(lnk_path);
 			RemoveReadonlyAndDelete(lnk_path);
 			return;
 		}
+		space_release += FileSize(lnk_path);
 		RemoveReadonlyAndDelete(lnk_path);
 		if (fileExists(st)) {
 			cout << "Target exists: " + st + "\n";
 			st3 = fname;
 			st3.Replace(".lnk", "");
+			space_release += FileSize(fname);
+			space_release -= FileSize(st);
 			copy(st.GetBuffer(), st3.GetBuffer());
 			RemoveReadonlyAndDelete(fname);
 			return;
@@ -312,6 +322,7 @@ void ProcessFile(path path1) {
 	// Remove file
 	if (remove_ext[ext]) {
 		WriteLog("+ Remove file: " + fname + "\n");
+		space_release += FileSize(fname);
 		RemoveReadonlyAndDelete(fname);
 		return;
 	}
@@ -411,6 +422,8 @@ void ProcessFile(path path1) {
 			}
 			RemoveReadonlyAndDelete(fname2 + "_original");
 		}
+		space_release += FileSize(fname);
+		space_release -= FileSize(fname2);
 		RemoveReadonlyAndDelete(fname);
 	}
 	else {
@@ -432,7 +445,10 @@ void process() {
 			if (nRetCode) return;
 		}
 	}
-	cout << "Processed " << i << " files\n";
+	CString est;
+	est.Format("+ Processed %lld files. Released %.1lf Mb\n",
+		i, space_release / 1024.0 / 1024.0);
+	WriteLog(est);
 }
 
 void ParseCommandLine() {
@@ -511,9 +527,10 @@ void LoadConfig() {
 	ifstream fs;
 	CString fname = dir + "\\BatchCompress.pl";
 	if (fileExists(fname)) {
-		WriteLog("Detected local config file: " + fname + "\n");
+		WriteLog(CTime::GetCurrentTime().Format("%Y-%m-%d %H:%M:%S") + " Detected local config file: " + fname + "\n");
 	}
 	else {
+		WriteLog(CTime::GetCurrentTime().Format("%Y-%m-%d %H:%M:%S") + " Using global config file\n");
 		fname = my_dir + "\\BatchCompress.pl";
 	}
 	// Check file exists
