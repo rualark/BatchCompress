@@ -70,7 +70,7 @@ void AppendLineToFile(CString fname, CString st)
 
 void WriteLog(CString st) {
 	cout << st;
-	AppendLineToFile(my_dir + "\\BatchCompress.log", st);
+	AppendLineToFile(dir + "\\BatchCompress.log", st);
 }
 
 bool dirExists(CString dirName_in)
