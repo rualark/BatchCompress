@@ -405,7 +405,19 @@ void ProcessFile(path path1) {
 		est.Format("+ Compressed %s to %.0lf%% from %.1lf Mb\n",
 			fname, size2 * 100.0 / size1, size1 / 1024.0 / 1024);
 		WriteLog(est);
-		// Copy exif
+		// Rename file with XMP tags (if tags are in a separate file)
+		if (fileExists(fnoext + ".xmp")) {
+			if (fileExists(fnoext + "-conv.xmp")) {
+				RemoveReadonlyAndDelete(fnoext + "-conv.xmp");
+				rename(fnoext + ".xmp", fnoext + "-conv.xmp");
+				cout << "+ Overwriting XMP file: " + fnoext + ".xmp" << "\n";
+			}
+			else {
+				rename(fnoext + ".xmp", fnoext + "-conv.xmp");
+				cout << "+ Renamed XMP file: " + fnoext + ".xmp" << "\n";
+			}
+		}
+		// Copy exif, XMP and other tags inside file
 		if (jpeg_ext[ext] && save_exif) {
 			par.Format("-tagsFromFile \"%s\" \"%s\"",
 				fname, fname2);
