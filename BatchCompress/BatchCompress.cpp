@@ -25,6 +25,7 @@ CString ffmpeg_par_image = "-y -q:v 2 -vf scale='min(1920,iw)':-2";
 CString magick_par_image = "-resize 1920";
 int process_links = 0;
 int save_exif = 0;
+int rename_xmp = 0;
 
 long long space_release = 0;
 
@@ -406,7 +407,7 @@ void ProcessFile(path path1) {
 			fname, size2 * 100.0 / size1, size1 / 1024.0 / 1024);
 		WriteLog(est);
 		// Rename file with XMP tags (if tags are in a separate file)
-		if (fileExists(fnoext + ".xmp")) {
+		if (rename_xmp && fileExists(fnoext + ".xmp")) {
 			if (fileExists(fnoext + "-conv.xmp")) {
 				RemoveReadonlyAndDelete(fnoext + "-conv.xmp");
 				rename(fnoext + ".xmp", fnoext + "-conv.xmp");
@@ -442,6 +443,18 @@ void ProcessFile(path path1) {
 		est.Format("- Could not compress %s better (%.0lf%% from %.1lf Mb)\n",
 			fname, size2 * 100.0 / size1, size1 / 1024.0 / 1024);
 		cout << est;
+		// Rename file with XMP tags (if tags are in a separate file)
+		if (rename_xmp && fileExists(fnoext + ".xmp")) {
+			if (fileExists(fnoext + "-noconv.xmp")) {
+				RemoveReadonlyAndDelete(fnoext + "-noconv.xmp");
+				rename(fnoext + ".xmp", fnoext + "-noconv.xmp");
+				cout << "+ Overwriting XMP file: " + fnoext + ".xmp" << "\n";
+			}
+			else {
+				rename(fnoext + ".xmp", fnoext + "-noconv.xmp");
+				cout << "+ Renamed XMP file: " + fnoext + ".xmp" << "\n";
+			}
+		}
 		RemoveReadonlyAndDelete(fname2);
 		rename(fname, fname3);
 	}
@@ -604,6 +617,7 @@ void LoadConfig() {
 			LoadVar(&st2, &st3, "ignore_2", &ignore_2);
 			LoadVar(&st2, &st3, "process_links", &process_links);
 			LoadVar(&st2, &st3, "save_exif", &save_exif);
+			LoadVar(&st2, &st3, "rename_xmp", &rename_xmp);
 			if (!parameter_found) {
 				WriteLog("Unrecognized parameter '" + st2 + "' = '" + st3 + "' in file " + fname + "\n");
 			}

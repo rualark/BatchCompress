@@ -9,12 +9,23 @@ magick_par_image = "-resize 1920"
 
 # Enable modules
 # process_links=0: Do not process links
-# process_links=1: Fix links
-# process_links=2: Replace links with linked files
-process_links = 2
+# process_links=1: Fix links (checked before remove_ext)
+# process_links=2: Replace links with linked files (checked before remove_ext)
+process_links = 0
 # save_exif=0: Do not save exif when processing (can process faster)
 # save_exif=1: Save exif when processing
 save_exif = 1
+
+# When renaming main file, also rename XMP
+rename_xmp = 1
+
+# File extensions to delete (checked after process_links)
+remove_ext = ".ithmb"
+remove_ext = ".videocache"
+remove_ext = ".dat"
+remove_ext = ".thm"
+remove_ext = ".tmp"
+remove_ext = ".peak"
 
 # File extensions to convert to jpeg
 image_ext = ".cr2"
@@ -43,10 +54,3 @@ video_ext = ".3gp"
 audio_ext = ".wav"
 audio_ext = ".mp3"
 
-# File extensions to delete
-remove_ext = ".ithmb"
-remove_ext = ".videocache"
-remove_ext = ".dat"
-remove_ext = ".thm"
-remove_ext = ".tmp"
-remove_ext = ".peak"
