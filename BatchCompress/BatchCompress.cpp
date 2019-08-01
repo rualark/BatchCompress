@@ -5,12 +5,13 @@
 
 #include "stdafx.h"
 #include "BatchCompress.h"
+#include <string>
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
 
-map<CString, char> audio_ext, video_ext, jpeg_ext, image_ext, remove_ext;
+map<CString, int> audio_ext, video_ext, jpeg_ext, image_ext, remove_ext, ignore_match;
 CString cmd_line, my_path, my_dir, dir, ffmpeg_path, magick_path, lnkedit_path, exiftool_path;
 int nRetCode = 0;
 int run_minimized = 1;
@@ -34,6 +35,33 @@ long long space_release = 0;
 CWinApp theApp;
 
 using namespace std;
+
+bool isMatch(string str, string pattern)
+{
+	vector<vector<bool>> bool_array(str.size() + 1, vector<bool>(pattern.size() + 1, false));
+	//initialize boolean array to false.
+	for (int i = 0; i <= str.size(); ++i)
+	{
+		for (int j = 0; j <= pattern.size(); ++j)
+		{
+			bool_array[i][j] = 0;
+		}
+	}
+	// base case
+	bool_array[0][0] = true;
+	for (int i = 1; i <= str.size(); i++)
+	{
+		for (int j = 1; j <= pattern.size(); j++)
+		{
+			if (str[i - 1] == pattern[j - 1] || pattern[j - 1] == '?')
+				bool_array[i][j] = bool_array[i - 1][j - 1];
+
+			else if (pattern[j - 1] == '*')
+				bool_array[i][j] = bool_array[i][j - 1] || bool_array[i - 1][j];
+		}
+	}
+	return bool_array[str.size()][pattern.size()];
+}
 
 __int64 FileSize(CString fname)
 {
@@ -185,6 +213,7 @@ void ProcessFile(path path1) {
 	int ret;
 	CString ext = path1.extension().string().c_str();
 	CString fname = path1.string().c_str();
+	CString fnopath = path1.filename().string().c_str();
 	CString fnoext = noext_from_path(fname);
 	ext.MakeLower();
 	// Fix link
@@ -321,6 +350,21 @@ void ProcessFile(path path1) {
 		return;
 	}
 	// Remove file
+	if (remove_ext[ext]) {
+		WriteLog("+ Remove file: " + fname + "\n");
+		space_release += FileSize(fname);
+		RemoveReadonlyAndDelete(fname);
+		return;
+	}
+	// Ignore match
+	for (const auto &ppr : ignore_match) {
+		string s1(fnopath);
+		string s2(ppr.first);
+		if (isMatch(s1, s2)) {
+			cout << "- Ignore match: " << path1 << "\n";
+			return;
+		}
+	}
 	if (remove_ext[ext]) {
 		WriteLog("+ Remove file: " + fname + "\n");
 		space_release += FileSize(fname);
@@ -604,6 +648,10 @@ void LoadConfig() {
 			}
 			if (st2 == "remove_ext") {
 				remove_ext[st3] = 1;
+				++parameter_found;
+			}
+			if (st2 == "ignore_match") {
+				ignore_match[st3] = 1;
 				++parameter_found;
 			}
 			if (st2 == "audio_ext") {

@@ -27,6 +27,9 @@ remove_ext = ".thm"
 remove_ext = ".tmp"
 remove_ext = ".peak"
 
+# File masks to ignore (checked after remove_ext)
+ignore_match = "480P_600K_*"
+
 # File extensions to convert to jpeg
 image_ext = ".cr2"
 image_ext = ".crw"
