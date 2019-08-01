@@ -360,6 +360,7 @@ void ProcessFile(path path1) {
 	for (const auto &ppr : ignore_match) {
 		string s1(fnopath);
 		string s2(ppr.first);
+		cout << "Checking match of " << s1 << " with " << s2 << endl;
 		if (isMatch(s1, s2)) {
 			cout << "- Ignore match: " << path1 << "\n";
 			return;
@@ -430,12 +431,14 @@ void ProcessFile(path path1) {
 	if (ret) {
 		cout << "! Error during running conversion: " << ret << "\n";
 		RemoveReadonlyAndDelete(fname2);
+		RemoveReadonlyAndDelete(fname3);
 		rename(fname, fname3);
 		return;
 	}
 	if (!fileExists(fname2)) {
 		cout << "! File not found: " + fname2 << "\n";
 		RemoveReadonlyAndDelete(fname2);
+		RemoveReadonlyAndDelete(fname3);
 		rename(fname, fname3);
 		return;
 	}
@@ -443,6 +446,7 @@ void ProcessFile(path path1) {
 	if (size2 < 100) {
 		cout << "! Resulting size too small: " << size2 << "\n";
 		RemoveReadonlyAndDelete(fname2);
+		RemoveReadonlyAndDelete(fname3);
 		rename(fname, fname3);
 		return;
 	}
@@ -500,6 +504,7 @@ void ProcessFile(path path1) {
 			}
 		}
 		RemoveReadonlyAndDelete(fname2);
+		RemoveReadonlyAndDelete(fname3);
 		rename(fname, fname3);
 	}
 }
