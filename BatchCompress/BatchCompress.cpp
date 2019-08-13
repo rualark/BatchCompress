@@ -27,6 +27,7 @@ CString magick_par_image = "-resize 1920";
 int process_links = 0;
 int save_exif = 0;
 int rename_xmp = 0;
+int shorten_filenames_to = 0;
 
 long long space_release = 0;
 
@@ -126,6 +127,15 @@ bool fileExists(CString dirName_in)
 	return true;    // this is not a directory!
 }
 
+bool fileOrDirExists(CString dirName_in)
+{
+	DWORD ftyp = GetFileAttributesA(dirName_in);
+	if (ftyp == INVALID_FILE_ATTRIBUTES)
+		return false;  //something is wrong with your path!
+
+	return true;    // this is not a directory!
+}
+
 void read_file_sv(CString fname, vector<CString> &sv) {
 	// Load file
 	ifstream fs;
@@ -211,12 +221,14 @@ void RemoveReadonlyAndDelete(CString fname) {
 void ProcessFile(path path1) {
 	CString par, st, st2, st3;
 	int ret;
-	CString ext, fname, fnopath, fnoext;
+	CString ext, fname, fnopath, fnoext, fnoextnopath, fdir;
 	try {
 		ext = path1.extension().string().c_str();
 		fname = path1.string().c_str();
 		fnopath = path1.filename().string().c_str();
+		fdir = path1.parent_path().string().c_str();
 		fnoext = noext_from_path(fname);
+		fnoextnopath = noext_from_path(fnopath);
 	}
 	catch (...) {
 		cout << "Warning! Next file is unreadable probably because long file name length. Please correct." << endl;
@@ -224,6 +236,44 @@ void ProcessFile(path path1) {
 		return;
 	}
 	ext.MakeLower();
+	if (shorten_filenames_to && fnoextnopath.GetLength() > shorten_filenames_to) {
+		// Save 4 characters for added non-duplication id (like "_123")
+		// Save 7 characters for "-conv" or "-noconv"
+		CString fname_short = fnoextnopath.Left(shorten_filenames_to - 11);
+		if (fnoextnopath.Right(5) == "-conv") {
+			fname_short += "-conv";
+		}
+		else if (fnoextnopath.Right(7) == "-noconv") {
+			fname_short += "-noconv";
+		}
+		if (fileOrDirExists(fdir + "\\" + fname_short + ext)) {
+			int suffix = 1;
+			int found = 0;
+			CString fname_short2;
+			for (int i = 0; i < 1000; ++i) {
+				suffix++;
+				fname_short2.Format("%s%d",
+					fname_short + "_", suffix);
+				if (!fileOrDirExists(fdir + "\\" + fname_short2 + ext)) {
+					found = 1;
+					break;
+				}
+			}
+			if (!found) {
+				WriteLog("- Cannot shorten file, because too many similar files already exist: " + fname + "\n");
+			}
+			else {
+				fname_short = fname_short2;
+			}
+		}
+		rename(fname, fdir + "\\" + fname_short + ext);
+		WriteLog("+ Shortened file: " + fname + " to: " + fdir + "\\" + fname_short + ext + "\n");
+		// Update file for processing
+		fname = fdir + "\\" + fname_short + ext;
+		fnopath = fname_short + ext;
+		fnoext = noext_from_path(fname);
+		fnoextnopath = noext_from_path(fnopath);
+	}
 	// Fix link
 	if (ext == ".lnk" && process_links == 1) {
 		// Read link
@@ -369,7 +419,7 @@ void ProcessFile(path path1) {
 		string s1(fnopath);
 		string s2(ppr.first);
 		if (isMatch(s1, s2)) {
-			cout << "- Ignore match: " << path1 << "\n";
+			cout << "- Ignore match: " << fname << "\n";
 			return;
 		}
 	}
@@ -383,29 +433,29 @@ void ProcessFile(path path1) {
 		fname.Find("_3.jpg") != -1 || fname.Find("_3.JPG") != -1 || 
 		fname.Find("_4.jpg") != -1 || fname.Find("_4.JPG") != -1 || 
 		fname.Find("_5.jpg") != -1 || fname.Find("_5.JPG") != -1) {
-		cout << "- Ignore result: " << path1 << "\n";
+		cout << "- Ignore result: " << fname << "\n";
 		return;
 	}
 	if (!video_ext[ext] && !image_ext[ext] && !jpeg_ext[ext] && !audio_ext[ext]) {
-		cout << "- Ignore ext: " << path1 << "\n";
+		cout << "- Ignore ext: " << fname << "\n";
 		return;
 	}
 	long long size1 = FileSize(fname);
 	if (size1 < 100) {
-		cout << "Ignore small size: " << path1 << ": " << size1 << "\n";
+		cout << "Ignore small size: " << fname << ": " << size1 << "\n";
 		return;
 	}
 	if (fname.Find("-conv.mp4") != -1 || fname.Find("-converted.mp4") != -1 ||
 		fname.Find("-conv.jpg") != -1 || fname.Find("-conv.mp3") != -1) {
-		cout << "- Ignore converted: " << path1 << "\n";
+		cout << "- Ignore converted: " << fname << "\n";
 		return;
 	}
 	if (fname.Find("-noconv.") != -1) {
-		cout << "- Ignore noconv: " << path1 << "\n";
+		cout << "- Ignore noconv: " << fname << "\n";
 		return;
 	}
 	// Run
-	cout << "+ Process: " << path1 << "\n";
+	cout << "+ Process: " << fname << "\n";
 	CString fname2 = fnoext + "-conv";
 	if (video_ext[ext]) fname2 += ".mp4";
 	if (jpeg_ext[ext]) fname2 += ".jpg";
@@ -679,6 +729,7 @@ void LoadConfig() {
 			LoadVar(&st2, &st3, "process_links", &process_links);
 			LoadVar(&st2, &st3, "save_exif", &save_exif);
 			LoadVar(&st2, &st3, "rename_xmp", &rename_xmp);
+			LoadVar(&st2, &st3, "shorten_filenames_to", &shorten_filenames_to);
 			if (!parameter_found) {
 				WriteLog("Unrecognized parameter '" + st2 + "' = '" + st3 + "' in file " + fname + "\n");
 			}
