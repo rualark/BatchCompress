@@ -518,7 +518,7 @@ void ProcessFile(path path1) {
 
 void process() {
 	long long i = 0;
-	CString scan_dir = dir;
+	CString scan_dir = "\\\\?\\" + dir;
 	for (recursive_directory_iterator it(scan_dir.GetBuffer()), end; it != end; ++it) {
 		path lpath = it->path();
 		if (!is_directory(lpath)) {
