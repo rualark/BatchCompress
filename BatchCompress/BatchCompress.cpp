@@ -240,10 +240,10 @@ void ProcessFile(path path1) {
 		// Save 4 characters for added non-duplication id (like "_123")
 		// Save 7 characters for "-conv" or "-noconv"
 		CString fname_short = fnoextnopath.Left(shorten_filenames_to - 11);
-		if (fnoextnopath.Right(5) == "-conv") {
+		if (fnoextnopath.Find("-conv.") != -1 || fnoextnopath.Find("-conv_") != -1) {
 			fname_short += "-conv";
 		}
-		else if (fnoextnopath.Right(7) == "-noconv") {
+		if (fnoextnopath.Find("-noconv.") != -1 || fnoextnopath.Find("-noconv_") != -1) {
 			fname_short += "-noconv";
 		}
 		if (fileOrDirExists(fdir + "\\" + fname_short + ext)) {
@@ -429,10 +429,10 @@ void ProcessFile(path path1) {
 		RemoveReadonlyAndDelete(fname);
 		return;
 	}
-	if (ignore_2 && fname.Find("_2.jpg") != -1 || fname.Find("_2.JPG") != -1 ||
+	if (ignore_2 && (fname.Find("_2.jpg") != -1 || fname.Find("_2.JPG") != -1 ||
 		fname.Find("_3.jpg") != -1 || fname.Find("_3.JPG") != -1 || 
 		fname.Find("_4.jpg") != -1 || fname.Find("_4.JPG") != -1 || 
-		fname.Find("_5.jpg") != -1 || fname.Find("_5.JPG") != -1) {
+		fname.Find("_5.jpg") != -1 || fname.Find("_5.JPG") != -1)) {
 		cout << "- Ignore result: " << fname << "\n";
 		return;
 	}
@@ -445,12 +445,14 @@ void ProcessFile(path path1) {
 		cout << "Ignore small size: " << fname << ": " << size1 << "\n";
 		return;
 	}
-	if (fname.Find("-conv.mp4") != -1 || fname.Find("-converted.mp4") != -1 ||
-		fname.Find("-conv.jpg") != -1 || fname.Find("-conv.mp3") != -1) {
+	if (fname.Find("-conv.") != -1 || fname.Find("-conv_") != -1
+		//fname.Find("-conv.mp4") != -1 || fname.Find("-converted.mp4") != -1 ||
+		//fname.Find("-conv.jpg") != -1 || fname.Find("-conv.mp3") != -1
+		) {
 		cout << "- Ignore converted: " << fname << "\n";
 		return;
 	}
-	if (fname.Find("-noconv.") != -1) {
+	if (fname.Find("-noconv.") != -1 || fname.Find("-noconv_") != -1) {
 		cout << "- Ignore noconv: " << fname << "\n";
 		return;
 	}
@@ -508,8 +510,11 @@ void ProcessFile(path path1) {
 		return;
 	}
 	if (size2 < size1) {
-		est.Format("+ Compressed %s to %.0lf%% from %.1lf Mb\n",
-			fname, size2 * 100.0 / size1, size1 / 1024.0 / 1024);
+		space_release += FileSize(fname);
+		space_release -= FileSize(fname2);
+		est.Format("+ Compressed %s to %.0lf%% from %.1lf Mb (total free %.1lf Mb)\n",
+			fname, size2 * 100.0 / size1, size1 / 1024.0 / 1024,
+			space_release / 1024.0 / 1024.0);
 		WriteLog(est);
 		// Rename file with XMP tags (if tags are in a separate file)
 		if (rename_xmp && fileExists(fnoext + ".xmp")) {
@@ -540,8 +545,6 @@ void ProcessFile(path path1) {
 			}
 			RemoveReadonlyAndDelete(fname2 + "_original");
 		}
-		space_release += FileSize(fname);
-		space_release -= FileSize(fname2);
 		RemoveReadonlyAndDelete(fname);
 	}
 	else {
