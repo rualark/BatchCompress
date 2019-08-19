@@ -240,10 +240,10 @@ void ProcessFile(path path1) {
 		// Save 4 characters for added non-duplication id (like "_123")
 		// Save 7 characters for "-conv" or "-noconv"
 		CString fname_short = fnoextnopath.Left(shorten_filenames_to - 11);
-		if (fnoextnopath.Find("-conv.") != -1 || fnoextnopath.Find("-conv_") != -1) {
+		if (fnoextnopath.Find("-conv") != -1) {
 			fname_short += "-conv";
 		}
-		if (fnoextnopath.Find("-noconv.") != -1 || fnoextnopath.Find("-noconv_") != -1) {
+		if (fnoextnopath.Find("-noconv") != -1) {
 			fname_short += "-noconv";
 		}
 		if (fileOrDirExists(fdir + "\\" + fname_short + ext)) {
@@ -414,6 +414,10 @@ void ProcessFile(path path1) {
 		RemoveReadonlyAndDelete(fname);
 		return;
 	}
+	if (fdir.Find("-noconv") != -1) {
+		cout << "- Ignore noconv: " << fname << "\n";
+		return;
+	}
 	// Ignore match
 	for (const auto &ppr : ignore_match) {
 		string s1(fnopath);
@@ -445,14 +449,14 @@ void ProcessFile(path path1) {
 		cout << "Ignore small size: " << fname << ": " << size1 << "\n";
 		return;
 	}
-	if (fname.Find("-conv.") != -1 || fname.Find("-conv_") != -1
+	if (fname.Find("-conv") != -1
 		//fname.Find("-conv.mp4") != -1 || fname.Find("-converted.mp4") != -1 ||
 		//fname.Find("-conv.jpg") != -1 || fname.Find("-conv.mp3") != -1
 		) {
 		cout << "- Ignore converted: " << fname << "\n";
 		return;
 	}
-	if (fname.Find("-noconv.") != -1 || fname.Find("-noconv_") != -1) {
+	if (fname.Find("-noconv") != -1) {
 		cout << "- Ignore noconv: " << fname << "\n";
 		return;
 	}
