@@ -27,6 +27,7 @@ CString magick_par_image = "-resize 1920";
 int process_links = 0;
 int save_exif = 0;
 int rename_xmp = 0;
+int strip_tocut = 1;
 int shorten_filenames_to = 0;
 
 long long space_release = 0;
@@ -235,7 +236,43 @@ void ProcessFile(path path1) {
 		getchar();
 		return;
 	}
-	ext.MakeLower();
+	if (strip_tocut && fnoextnopath.Find("[cut") != -1) {
+		int pos, pos2;
+		CString fname_short;
+		pos = fnoextnopath.Find(" [to cut");
+		pos2 = fnoextnopath.Find("]", pos);
+		if (pos != -1 && pos2 != -1) {
+			fname_short = fnoextnopath.Left(pos) + fnoextnopath.Mid(pos2 + 1);
+			if (fileOrDirExists(fdir + "\\" + fname_short + ext)) {
+				WriteLog("! Cannot remove [to cut] tag from file with [cut] tag because inode exists: " + fname + " to: " + fname_short + "\n");
+			}
+			else {
+				rename(fname, fdir + "\\" + fname_short + ext);
+				WriteLog("+ Removed [to cut] tag from file with [cut] tag: " + fname + " to: " + fname_short + "\n");
+				fnoextnopath = fname_short;
+				fname = fdir + "\\" + fname_short + ext;
+				fnopath = fname_short + ext;
+				fnoext = noext_from_path(fname);
+			}
+		}
+		// Same process without space
+		pos = fnoextnopath.Find("[to cut");
+		pos2 = fnoextnopath.Find("]", pos);
+		if (pos != -1 && pos2 != -1) {
+			fname_short = fnoextnopath.Left(pos) + fnoextnopath.Mid(pos2 + 1);
+			if (fileOrDirExists(fdir + "\\" + fname_short + ext)) {
+				WriteLog("! Cannot remove [to cut] tag from file with [cut] tag because file exists: " + fname + " to: " + fname_short + "\n");
+			}
+			else {
+				rename(fname, fdir + "\\" + fname_short + ext);
+				WriteLog("+ Removed [to cut] tag from file with [cut] tag: " + fname + " to: " + fname_short + "\n");
+				fnoextnopath = fname_short;
+				fname = fdir + "\\" + fname_short + ext;
+				fnopath = fname_short + ext;
+				fnoext = noext_from_path(fname);
+			}
+		}
+	}
 	if (shorten_filenames_to && fnoextnopath.GetLength() > shorten_filenames_to) {
 		// Save 4 characters for added non-duplication id (like "_123")
 		// Save 7 characters for "-conv" or "-noconv"
@@ -267,13 +304,14 @@ void ProcessFile(path path1) {
 			}
 		}
 		rename(fname, fdir + "\\" + fname_short + ext);
-		WriteLog("+ Shortened file: " + fname + " to: " + fdir + "\\" + fname_short + ext + "\n");
+		WriteLog("+ Shortened file: " + fname + " to: " + fname_short + "\n");
 		// Update file for processing
 		fname = fdir + "\\" + fname_short + ext;
 		fnopath = fname_short + ext;
 		fnoext = noext_from_path(fname);
-		fnoextnopath = noext_from_path(fnopath);
+		fnoextnopath = fname_short;
 	}
+	ext.MakeLower();
 	// Fix link
 	if (ext == ".lnk" && process_links == 1) {
 		// Read link
@@ -687,7 +725,6 @@ void LoadConfig() {
 		// Get line
 		fs.getline(pch, 2550);
 		st = pch;
-		st.Replace("\"", "");
 		// Remove unneeded
 		pos = st.Find("#");
 		// Check if it is first symbol
@@ -703,6 +740,9 @@ void LoadConfig() {
 			st3 = st.Mid(pos + 1);
 			st2.Trim();
 			st3.Trim();
+			if (st3[0] == '"' && st3[st3.GetLength() - 1] == '"') {
+				st3 = st3.Mid(1, st3.GetLength() - 2);
+			}
 			st2.MakeLower();
 			// Load general variables
 			int idata = atoi(st2);
@@ -736,6 +776,7 @@ void LoadConfig() {
 			LoadVar(&st2, &st3, "process_links", &process_links);
 			LoadVar(&st2, &st3, "save_exif", &save_exif);
 			LoadVar(&st2, &st3, "rename_xmp", &rename_xmp);
+			LoadVar(&st2, &st3, "strip_tocut", &strip_tocut);
 			LoadVar(&st2, &st3, "shorten_filenames_to", &shorten_filenames_to);
 			if (!parameter_found) {
 				WriteLog("Unrecognized parameter '" + st2 + "' = '" + st3 + "' in file " + fname + "\n");
