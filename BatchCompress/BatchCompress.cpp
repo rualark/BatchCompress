@@ -65,7 +65,7 @@ bool isMatch(string str, string pattern)
 	return bool_array[str.size()][pattern.size()];
 }
 
-uintmax_t FileSize(CString dir_name_ext) {
+uintmax_t FileSize2(CString dir_name_ext) {
 	path pth = dir_name_ext.GetString();
 	uintmax_t sz = -1;
 	try {
@@ -77,9 +77,8 @@ uintmax_t FileSize(CString dir_name_ext) {
 	return sz;
 }
 
-__int64 FileSize2(CString dir_name_ext) {
-	LPCSTR szTemp = (LPCSTR)(LPCTSTR)dir_name_ext;
-	HANDLE hFile = CreateFile(szTemp, GENERIC_READ,
+__int64 FileSize(CString dir_name_ext) {
+	HANDLE hFile = CreateFile(dir_name_ext, GENERIC_READ,
 		FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING,
 		FILE_ATTRIBUTE_NORMAL, NULL);
 	if (hFile == INVALID_HANDLE_VALUE)
@@ -245,9 +244,9 @@ public:
 		UpdateAggregates();
 	}
 	void UpdateAggregates() {
-		dir_name_ = dir_ + name_;
+		dir_name_ = dir_ + "\\" + name_;
 		name_ext_ = name_ + ext_;
-		dir_name_ext_ = dir_ + name_ + ext_;
+		dir_name_ext_ = dir_ + "\\" + name_ + ext_;
 	}
 	// Get
 	const CString &dir() { return dir_; }
