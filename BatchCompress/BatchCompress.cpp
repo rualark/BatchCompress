@@ -243,6 +243,10 @@ public:
 		name_ = new_name;
 		UpdateAggregates();
 	}
+	void SetExt(CString new_ext) {
+		ext_ = new_ext;
+		UpdateAggregates();
+	}
 	void UpdateAggregates() {
 		dir_name_ = dir_ + "\\" + name_;
 		name_ext_ = name_ + ext_;
@@ -261,6 +265,11 @@ private:
 	CString name_ext_;
 	CString dir_name_ext_;
 };
+
+int RenameFile(FileName &f, FileName &f2) {
+	int res = rename(f.dir_name_ext(), f2.dir_name_ext());
+	return res;
+}
 
 void ProcessFile(path path1) {
 	CString par, st, st2, st3;
@@ -286,7 +295,7 @@ void ProcessFile(path path1) {
 					f.dir_name_ext() + " to: " + f2.name() + "\n");
 			}
 			else {
-				rename(f.dir_name_ext(), f2.dir_name_ext());
+				RenameFile(f, f2);
 				WriteLog("+ Removed [to cut] tag from file with [cut] tag: " + 
 					f.dir_name_ext() + " to: " + f2.name() + "\n");
 				f = f2;
@@ -302,8 +311,8 @@ void ProcessFile(path path1) {
 					f.dir_name_ext() + " to: " + f2.name() + "\n");
 			}
 			else {
-				rename(f.dir_name_ext(), f2.dir_name_ext());
-				WriteLog("+ Removed [to cut] tag from file with [cut] tag: " + 
+				RenameFile(f, f2);
+				WriteLog("+ Removed [to cut] tag from file with [cut] tag: " +
 					f.dir_name_ext() + " to: " + f2.name() + "\n");
 				f = f2;
 			}
@@ -341,7 +350,7 @@ void ProcessFile(path path1) {
 				f2 = f3;
 			}
 		}
-		rename(f.dir_name_ext(), f2.dir_name_ext());
+		RenameFile(f, f2);
 		WriteLog("+ Shortened file: " + f.dir_name_ext() + " to: " + f2.name() + "\n");
 		f = f2;
 	}
@@ -533,60 +542,62 @@ void ProcessFile(path path1) {
 	}
 	// Run
 	cout << "+ Process: " << f.dir_name_ext() << "\n";
-	CString fname2 = f.dir_name() + "-conv";
-	if (video_ext[f.ext()]) fname2 += ".mp4";
-	if (jpeg_ext[f.ext()]) fname2 += ".jpg";
-	if (image_ext[f.ext()]) fname2 += ".jpg";
-	if (audio_ext[f.ext()]) fname2 += ".mp3";
-	CString fname3 = f.dir_name() + "-noconv" + f.ext();
-	if (fileExists(fname2)) {
-		cout << "! Overwriting file: " + fname2 << "\n";
+	FileName fc = f;
+	fc.SetName(fc.name() + "-conv");
+	if (video_ext[f.ext()]) fc.SetExt(".mp4");
+	if (jpeg_ext[f.ext()]) fc.SetExt(".jpg");
+	if (image_ext[f.ext()]) fc.SetExt(".jpg");
+	if (audio_ext[f.ext()]) fc.SetExt(".mp3");
+	FileName fn = f;
+	fn.SetName(fn.name() + "-noconv");
+	if (fileExists(fc.dir_name_ext())) {
+		cout << "! Overwriting file: " + fc.dir_name_ext() << "\n";
 	}
 	if (video_ext[f.ext()]) {
 		par.Format("-i \"%s\" %s \"%s\"",
-			f.dir_name_ext(), ffmpeg_par_video, fname2);
+			f.dir_name_ext(), ffmpeg_par_video, fc.dir_name_ext());
 		ret = RunTimeout(ffmpeg_path, par, 10 * 24 * 60 * 60 * 1000);
 	}
 	if (image_ext[f.ext()]) {
 		par.Format("convert \"%s\" %s \"%s\"",
-			f.dir_name_ext(), magick_par_image, fname2);
+			f.dir_name_ext(), magick_par_image, fc.dir_name_ext());
 		ret = RunTimeout(magick_path, par, 10 * 24 * 60 * 60 * 1000);
 	}
 	if (jpeg_ext[f.ext()]) {
 		par.Format("-i \"%s\" %s \"%s\"",
-			f.dir_name_ext(), ffmpeg_par_image, fname2);
+			f.dir_name_ext(), ffmpeg_par_image, fc.dir_name_ext());
 		ret = RunTimeout(ffmpeg_path, par, 10 * 24 * 60 * 60 * 1000);
 	}
 	if (audio_ext[f.ext()]) {
 		par.Format("-i \"%s\" %s \"%s\"",
-			f.dir_name_ext(), ffmpeg_par_audio, fname2);
+			f.dir_name_ext(), ffmpeg_par_audio, fc.dir_name_ext());
 		ret = RunTimeout(ffmpeg_path, par, 10 * 24 * 60 * 60 * 1000);
 	}
 	if (ret) {
 		cout << "! Error during running conversion: " << ret << "\n";
-		RemoveReadonlyAndDelete(fname2);
-		RemoveReadonlyAndDelete(fname3);
-		rename(f.dir_name_ext(), fname3);
+		RemoveReadonlyAndDelete(fc.dir_name_ext());
+		RemoveReadonlyAndDelete(fn.dir_name_ext());
+		rename(f.dir_name_ext(), fn.dir_name_ext());
 		return;
 	}
-	if (!fileExists(fname2)) {
-		cout << "! File not found: " + fname2 << "\n";
-		RemoveReadonlyAndDelete(fname2);
-		RemoveReadonlyAndDelete(fname3);
-		rename(f.dir_name_ext(), fname3);
+	if (!fileExists(fc.dir_name_ext())) {
+		cout << "! File not found: " + fc.dir_name_ext() << "\n";
+		RemoveReadonlyAndDelete(fc.dir_name_ext());
+		RemoveReadonlyAndDelete(fn.dir_name_ext());
+		rename(f.dir_name_ext(), fn.dir_name_ext());
 		return;
 	}
-	long long size2 = FileSize(fname2);
+	long long size2 = FileSize(fc.dir_name_ext());
 	if (size2 < 100) {
 		cout << "! Resulting size too small: " << size2 << "\n";
-		RemoveReadonlyAndDelete(fname2);
-		RemoveReadonlyAndDelete(fname3);
-		rename(f.dir_name_ext(), fname3);
+		RemoveReadonlyAndDelete(fc.dir_name_ext());
+		RemoveReadonlyAndDelete(fn.dir_name_ext());
+		rename(f.dir_name_ext(), fn.dir_name_ext());
 		return;
 	}
 	if (size2 < size1) {
 		space_release += FileSize(f.dir_name_ext());
-		space_release -= FileSize(fname2);
+		space_release -= FileSize(fc.dir_name_ext());
 		est.Format("+ Compressed %s to %.0lf%% from %.1lf Mb (total free %.1lf Mb)\n",
 			f.dir_name_ext(), size2 * 100.0 / size1, size1 / 1024.0 / 1024,
 			space_release / 1024.0 / 1024.0);
@@ -606,19 +617,19 @@ void ProcessFile(path path1) {
 		// Copy exif, XMP and other tags inside file
 		if (jpeg_ext[f.ext()] && save_exif) {
 			par.Format("-tagsFromFile \"%s\" \"%s\"",
-				f.dir_name_ext(), fname2);
+				f.dir_name_ext(), fc.dir_name_ext());
 			ret = RunTimeout(exiftool_path, par, 10 * 24 * 60 * 60 * 1000);
 			if (ret) {
 				cout << "! Error copying exif tags: " << ret << "\n";
-				RemoveReadonlyAndDelete(fname2);
+				RemoveReadonlyAndDelete(fc.dir_name_ext());
 				return;
 			}
-			if (!fileExists(fname2 + "_original")) {
-				cout << "! File not found: " + fname2 << "_original\n";
-				RemoveReadonlyAndDelete(fname2);
+			if (!fileExists(fc.dir_name_ext() + "_original")) {
+				cout << "! File not found: " + fc.dir_name_ext() << "_original\n";
+				RemoveReadonlyAndDelete(fc.dir_name_ext());
 				return;
 			}
-			RemoveReadonlyAndDelete(fname2 + "_original");
+			RemoveReadonlyAndDelete(fc.dir_name_ext() + "_original");
 		}
 		RemoveReadonlyAndDelete(f.dir_name_ext());
 	}
@@ -638,9 +649,9 @@ void ProcessFile(path path1) {
 				cout << "+ Renamed XMP file: " + f.dir_name() + ".xmp" << "\n";
 			}
 		}
-		RemoveReadonlyAndDelete(fname2);
-		RemoveReadonlyAndDelete(fname3);
-		rename(f.dir_name_ext(), fname3);
+		RemoveReadonlyAndDelete(fc.dir_name_ext());
+		RemoveReadonlyAndDelete(fn.dir_name_ext());
+		rename(f.dir_name_ext(), fn.dir_name_ext());
 	}
 }
 
