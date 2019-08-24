@@ -65,9 +65,21 @@ bool isMatch(string str, string pattern)
 	return bool_array[str.size()][pattern.size()];
 }
 
-__int64 FileSize(CString fname)
-{
-	HANDLE hFile = CreateFile(fname, GENERIC_READ,
+uintmax_t FileSize(CString dir_name_ext) {
+	path pth = dir_name_ext.GetString();
+	uintmax_t sz = -1;
+	try {
+		sz = file_size(pth);
+	}
+	catch (filesystem_error& e) {
+		std::cout << e.what() << '\n';
+	}
+	return sz;
+}
+
+__int64 FileSize2(CString dir_name_ext) {
+	LPCSTR szTemp = (LPCSTR)(LPCTSTR)dir_name_ext;
+	HANDLE hFile = CreateFile(szTemp, GENERIC_READ,
 		FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING,
 		FILE_ATTRIBUTE_NORMAL, NULL);
 	if (hFile == INVALID_HANDLE_VALUE)
@@ -91,10 +103,10 @@ CString dir_from_path(CString path)
 	return path2;
 }
 
-void AppendLineToFile(CString fname, CString st)
+void AppendLineToFile(CString dir_name_ext, CString st)
 {
 	ofstream outfile;
-	outfile.open(fname, ios_base::app);
+	outfile.open(dir_name_ext, ios_base::app);
 	outfile << st;
 	outfile.close();
 }
@@ -137,14 +149,14 @@ bool fileOrDirExists(CString dirName_in)
 	return true;    // this is not a directory!
 }
 
-void read_file_sv(CString fname, vector<CString> &sv) {
+void read_file_sv(CString dir_name_ext, vector<CString> &sv) {
 	// Load file
 	ifstream fs;
-	if (!fileExists(fname)) {
-		cout << "Cannot find file " + fname + "\n";
+	if (!fileExists(dir_name_ext)) {
+		cout << "Cannot find file " + dir_name_ext + "\n";
 		return;
 	}
-	fs.open(fname);
+	fs.open(dir_name_ext);
 	char pch[2550];
 	CString st2;
 	sv.clear();
@@ -212,113 +224,135 @@ int RunTimeout(CString path, CString par, int delay) {
 	return 0;
 }
 
-void RemoveReadonlyAndDelete(CString fname) {
+void RemoveReadonlyAndDelete(CString dir_name_ext) {
 	// Remove read-only attribute for all files, because it prevents file deletion
-	SetFileAttributes(fname,
-		GetFileAttributes(fname) & ~FILE_ATTRIBUTE_READONLY);
-	DeleteFile(fname);
+	SetFileAttributes(dir_name_ext,
+		GetFileAttributes(dir_name_ext) & ~FILE_ATTRIBUTE_READONLY);
+	DeleteFile(dir_name_ext);
 }
+
+class FileName {
+public:
+	void FromPath(path pth) {
+		dir_ = pth.parent_path().string().c_str();
+		ext_ = pth.extension().string().c_str();
+		name_ = noext_from_path(pth.filename().string().c_str());
+		ext_.MakeLower();
+		UpdateAggregates();
+	}
+	void SetName(CString new_name) {
+		name_ = new_name;
+		UpdateAggregates();
+	}
+	void UpdateAggregates() {
+		dir_name_ = dir_ + name_;
+		name_ext_ = name_ + ext_;
+		dir_name_ext_ = dir_ + name_ + ext_;
+	}
+	// Get
+	const CString &dir() { return dir_; }
+	const CString &name() { return name_; }
+	const CString &ext() { return ext_; }
+	const CString dir_name_ext() { return dir_name_ext_; }
+	const CString &dir_name() { return dir_name_; }
+	const CString &name_ext() { return name_ext_; }
+private:
+	CString dir_, name_, ext_;
+	CString dir_name_;
+	CString name_ext_;
+	CString dir_name_ext_;
+};
 
 void ProcessFile(path path1) {
 	CString par, st, st2, st3;
 	int ret;
-	CString ext, fname, fnopath, fnoext, fnoextnopath, fdir;
+	FileName f;
 	try {
-		ext = path1.extension().string().c_str();
-		fname = path1.string().c_str();
-		fnopath = path1.filename().string().c_str();
-		fdir = path1.parent_path().string().c_str();
-		fnoext = noext_from_path(fname);
-		fnoextnopath = noext_from_path(fnopath);
+		f.FromPath(path1);
 	}
 	catch (...) {
 		cout << "Warning! Next file is unreadable probably because long file name length. Please correct." << endl;
 		getchar();
 		return;
 	}
-	if (strip_tocut && fnoextnopath.Find("[cut") != -1) {
+	if (strip_tocut && f.name().Find("[cut") != -1) {
 		int pos, pos2;
-		CString fname_short;
-		pos = fnoextnopath.Find(" [to cut");
-		pos2 = fnoextnopath.Find("]", pos);
+		FileName f2 = f;
+		pos = f.name().Find(" [to cut");
+		pos2 = f.name().Find("]", pos);
 		if (pos != -1 && pos2 != -1) {
-			fname_short = fnoextnopath.Left(pos) + fnoextnopath.Mid(pos2 + 1);
-			if (fileOrDirExists(fdir + "\\" + fname_short + ext)) {
-				WriteLog("! Cannot remove [to cut] tag from file with [cut] tag because inode exists: " + fname + " to: " + fname_short + "\n");
+			f2.SetName(f.name().Left(pos) + f.name().Mid(pos2 + 1));
+			if (fileOrDirExists(f2.dir_name_ext())) {
+				WriteLog("! Cannot remove [to cut] tag from file with [cut] tag because inode exists: " + 
+					f.dir_name_ext() + " to: " + f2.name() + "\n");
 			}
 			else {
-				rename(fname, fdir + "\\" + fname_short + ext);
-				WriteLog("+ Removed [to cut] tag from file with [cut] tag: " + fname + " to: " + fname_short + "\n");
-				fnoextnopath = fname_short;
-				fname = fdir + "\\" + fname_short + ext;
-				fnopath = fname_short + ext;
-				fnoext = noext_from_path(fname);
+				rename(f.dir_name_ext(), f2.dir_name_ext());
+				WriteLog("+ Removed [to cut] tag from file with [cut] tag: " + 
+					f.dir_name_ext() + " to: " + f2.name() + "\n");
+				f = f2;
 			}
 		}
 		// Same process without space
-		pos = fnoextnopath.Find("[to cut");
-		pos2 = fnoextnopath.Find("]", pos);
+		pos = f.name().Find("[to cut");
+		pos2 = f.name().Find("]", pos);
 		if (pos != -1 && pos2 != -1) {
-			fname_short = fnoextnopath.Left(pos) + fnoextnopath.Mid(pos2 + 1);
-			if (fileOrDirExists(fdir + "\\" + fname_short + ext)) {
-				WriteLog("! Cannot remove [to cut] tag from file with [cut] tag because file exists: " + fname + " to: " + fname_short + "\n");
+			f2.SetName(f.name().Left(pos) + f.name().Mid(pos2 + 1));
+			if (fileOrDirExists(f2.dir_name_ext())) {
+				WriteLog("! Cannot remove [to cut] tag from file with [cut] tag because inode exists: " + 
+					f.dir_name_ext() + " to: " + f2.name() + "\n");
 			}
 			else {
-				rename(fname, fdir + "\\" + fname_short + ext);
-				WriteLog("+ Removed [to cut] tag from file with [cut] tag: " + fname + " to: " + fname_short + "\n");
-				fnoextnopath = fname_short;
-				fname = fdir + "\\" + fname_short + ext;
-				fnopath = fname_short + ext;
-				fnoext = noext_from_path(fname);
+				rename(f.dir_name_ext(), f2.dir_name_ext());
+				WriteLog("+ Removed [to cut] tag from file with [cut] tag: " + 
+					f.dir_name_ext() + " to: " + f2.name() + "\n");
+				f = f2;
 			}
 		}
 	}
-	if (shorten_filenames_to && fnoextnopath.GetLength() > shorten_filenames_to) {
+	if (shorten_filenames_to && f.name().GetLength() > shorten_filenames_to) {
 		// Save 4 characters for added non-duplication id (like "_123")
 		// Save 7 characters for "-conv" or "-noconv"
-		CString fname_short = fnoextnopath.Left(shorten_filenames_to - 11);
-		if (fnoextnopath.Find("-conv") != -1) {
-			fname_short += "-conv";
+		FileName f2 = f;
+		f2.SetName(f.name().Left(shorten_filenames_to - 11));
+		if (f.name().Find("-conv") != -1) {
+			f2.SetName(f2.name() + "-conv");
 		}
-		if (fnoextnopath.Find("-noconv") != -1) {
-			fname_short += "-noconv";
+		if (f.name().Find("-noconv") != -1) {
+			f2.SetName(f2.name() + "-noconv");
 		}
-		if (fileOrDirExists(fdir + "\\" + fname_short + ext)) {
+		if (fileOrDirExists(f2.dir_name_ext())) {
 			int suffix = 1;
 			int found = 0;
-			CString fname_short2;
+			FileName f3 = f2;
 			for (int i = 0; i < 1000; ++i) {
 				suffix++;
-				fname_short2.Format("%s%d",
-					fname_short + "_", suffix);
-				if (!fileOrDirExists(fdir + "\\" + fname_short2 + ext)) {
+				st.Format("%s%d",	f3.name() + "_", suffix);
+				f3.SetName(st);
+				if (!fileOrDirExists(f3.dir_name_ext())) {
 					found = 1;
 					break;
 				}
 			}
 			if (!found) {
-				WriteLog("- Cannot shorten file, because too many similar files already exist: " + fname + "\n");
+				WriteLog("- Cannot shorten file, because too many similar files already exist: " + 
+					f.dir_name_ext() + "\n");
 			}
 			else {
-				fname_short = fname_short2;
+				f2 = f3;
 			}
 		}
-		rename(fname, fdir + "\\" + fname_short + ext);
-		WriteLog("+ Shortened file: " + fname + " to: " + fname_short + "\n");
-		// Update file for processing
-		fname = fdir + "\\" + fname_short + ext;
-		fnopath = fname_short + ext;
-		fnoext = noext_from_path(fname);
-		fnoextnopath = fname_short;
+		rename(f.dir_name_ext(), f2.dir_name_ext());
+		WriteLog("+ Shortened file: " + f.dir_name_ext() + " to: " + f2.name() + "\n");
+		f = f2;
 	}
-	ext.MakeLower();
 	// Fix link
-	if (ext == ".lnk" && process_links == 1) {
+	if (f.ext() == ".lnk" && process_links == 1) {
 		// Read link
-		cout << "Detected link: " << fname << "\n";
-		//cout << "Noext: " << fnoext << "\n";
-		CString lnk_path = fnoext + ".lnk-nfo";
-		par.Format("\"%s\" \"%s\" \"%s\"", lnkedit_path, fname, lnk_path);
+		cout << "Detected link: " << f.dir_name_ext() << "\n";
+		//cout << "Noext: " << f.dir_name() << "\n";
+		CString lnk_path = f.dir_name() + ".lnk-nfo";
+		par.Format("\"%s\" \"%s\" \"%s\"", lnkedit_path, f.dir_name_ext(), lnk_path);
 		//cout << "Run: " << my_dir + "\\lnkedit2.bat " << par << "\n";
 		ret = RunTimeout(my_dir + "\\lnkedit2.bat", par, 60 * 1000);
 		if (ret) {
@@ -362,7 +396,7 @@ void ProcessFile(path path1) {
 		st2 = noext_from_path(st) + "-conv." + ext_from_path(st);
 		if (fileExists(st2)) {
 			cout << "Target exists conv: " + st2 + "\n";
-			par.Format("\"%s\" \"%s\" \"%s\"", fname, st3, fname_from_path(st2));
+			par.Format("\"%s\" \"%s\" \"%s\"", f.dir_name_ext(), st3, fname_from_path(st2));
 			//cout << "Run: " << lnkedit_path << " " << par << "\n";
 			ret = RunTimeout(lnkedit_path, par, 60 * 1000);
 			return;
@@ -370,7 +404,7 @@ void ProcessFile(path path1) {
 		st2 = noext_from_path(st) + "-noconv." + ext_from_path(st);
 		if (fileExists(st2)) {
 			cout << "Target exists noconv: " + st2 + "\n";
-			par.Format("\"%s\" \"%s\" \"%s\"", fname, st3, fname_from_path(st2));
+			par.Format("\"%s\" \"%s\" \"%s\"", f.dir_name_ext(), st3, fname_from_path(st2));
 			//cout << "Run: " << lnkedit_path << " " << par << "\n";
 			ret = RunTimeout(lnkedit_path, par, 60 * 1000);
 			return;
@@ -378,7 +412,7 @@ void ProcessFile(path path1) {
 		st2 = noext_from_path(st) + "-conv.jpg";
 		if (fileExists(st2)) {
 			cout << "Target exists conv: " + st2 + "\n";
-			par.Format("\"%s\" \"%s\" \"%s\"", fname, st3, fname_from_path(st2));
+			par.Format("\"%s\" \"%s\" \"%s\"", f.dir_name_ext(), st3, fname_from_path(st2));
 			//cout << "Run: " << lnkedit_path << " " << par << "\n";
 			ret = RunTimeout(lnkedit_path, par, 60 * 1000);
 			return;
@@ -386,7 +420,7 @@ void ProcessFile(path path1) {
 		st2 = noext_from_path(st) + "-noconv.jpg";
 		if (fileExists(st2)) {
 			cout << "Target exists noconv: " + st2 + "\n";
-			par.Format("\"%s\" \"%s\" \"%s\"", fname, st3, fname_from_path(st2));
+			par.Format("\"%s\" \"%s\" \"%s\"", f.dir_name_ext(), st3, fname_from_path(st2));
 			//cout << "Run: " << lnkedit_path << " " << par << "\n";
 			ret = RunTimeout(lnkedit_path, par, 60 * 1000);
 			return;
@@ -396,12 +430,12 @@ void ProcessFile(path path1) {
 		return;
 	}
 	// Copy file to link
-	if (ext == ".lnk" && process_links == 2) {
+	if (f.ext() == ".lnk" && process_links == 2) {
 		// Read link
-		cout << "Detected link: " << fname << "\n";
-		//cout << "Noext: " << fnoext << "\n";
-		CString lnk_path = fnoext + ".lnk-nfo";
-		par.Format("\"%s\" \"%s\" \"%s\"", lnkedit_path, fname, lnk_path);
+		cout << "Detected link: " << f.dir_name_ext() << "\n";
+		//cout << "Noext: " << f.dir_name() << "\n";
+		CString lnk_path = f.dir_name() + ".lnk-nfo";
+		par.Format("\"%s\" \"%s\" \"%s\"", lnkedit_path, f.dir_name_ext(), lnk_path);
 		//cout << "Run: " << my_dir + "\\lnkedit2.bat " << par << "\n";
 		ret = RunTimeout(my_dir + "\\lnkedit2.bat", par, 60 * 1000);
 		if (ret) {
@@ -434,113 +468,113 @@ void ProcessFile(path path1) {
 		RemoveReadonlyAndDelete(lnk_path);
 		if (fileExists(st)) {
 			cout << "Target exists: " + st + "\n";
-			st3 = fname;
+			st3 = f.dir_name_ext();
 			st3.Replace(".lnk", "");
-			space_release += FileSize(fname);
+			space_release += FileSize(f.dir_name_ext());
 			space_release -= FileSize(st);
 			copy(st.GetBuffer(), st3.GetBuffer());
-			RemoveReadonlyAndDelete(fname);
+			RemoveReadonlyAndDelete(f.dir_name_ext());
 			return;
 		}
 		// Do nothing if link is bad
 		return;
 	}
 	// Remove file
-	if (remove_ext[ext]) {
-		WriteLog("+ Remove file: " + fname + "\n");
-		space_release += FileSize(fname);
-		RemoveReadonlyAndDelete(fname);
+	if (remove_ext[f.ext()]) {
+		WriteLog("+ Remove file: " + f.dir_name_ext() + "\n");
+		space_release += FileSize(f.dir_name_ext());
+		RemoveReadonlyAndDelete(f.dir_name_ext());
 		return;
 	}
-	if (fdir.Find("-noconv") != -1) {
-		cout << "- Ignore noconv: " << fname << "\n";
+	if (f.dir().Find("-noconv") != -1) {
+		cout << "- Ignore noconv: " << f.dir_name_ext() << "\n";
 		return;
 	}
 	// Ignore match
 	for (const auto &ppr : ignore_match) {
-		string s1(fnopath);
+		string s1(f.name_ext());
 		string s2(ppr.first);
 		if (isMatch(s1, s2)) {
-			cout << "- Ignore match: " << fname << "\n";
+			cout << "- Ignore match: " << f.dir_name_ext() << "\n";
 			return;
 		}
 	}
-	if (remove_ext[ext]) {
-		WriteLog("+ Remove file: " + fname + "\n");
-		space_release += FileSize(fname);
-		RemoveReadonlyAndDelete(fname);
+	if (remove_ext[f.ext()]) {
+		WriteLog("+ Remove file: " + f.dir_name_ext() + "\n");
+		space_release += FileSize(f.dir_name_ext());
+		RemoveReadonlyAndDelete(f.dir_name_ext());
 		return;
 	}
-	if (ignore_2 && (fname.Find("_2.jpg") != -1 || fname.Find("_2.JPG") != -1 ||
-		fname.Find("_3.jpg") != -1 || fname.Find("_3.JPG") != -1 || 
-		fname.Find("_4.jpg") != -1 || fname.Find("_4.JPG") != -1 || 
-		fname.Find("_5.jpg") != -1 || fname.Find("_5.JPG") != -1)) {
-		cout << "- Ignore result: " << fname << "\n";
+	if (ignore_2 && (f.dir_name_ext().Find("_2.jpg") != -1 || f.dir_name_ext().Find("_2.JPG") != -1 ||
+		f.dir_name_ext().Find("_3.jpg") != -1 || f.dir_name_ext().Find("_3.JPG") != -1 || 
+		f.dir_name_ext().Find("_4.jpg") != -1 || f.dir_name_ext().Find("_4.JPG") != -1 || 
+		f.dir_name_ext().Find("_5.jpg") != -1 || f.dir_name_ext().Find("_5.JPG") != -1)) {
+		cout << "- Ignore result: " << f.dir_name_ext() << "\n";
 		return;
 	}
-	if (!video_ext[ext] && !image_ext[ext] && !jpeg_ext[ext] && !audio_ext[ext]) {
-		cout << "- Ignore ext: " << fname << "\n";
+	if (!video_ext[f.ext()] && !image_ext[f.ext()] && !jpeg_ext[f.ext()] && !audio_ext[f.ext()]) {
+		cout << "- Ignore ext: " << f.dir_name_ext() << "\n";
 		return;
 	}
-	long long size1 = FileSize(fname);
+	long long size1 = FileSize(f.dir_name_ext());
 	if (size1 < 100) {
-		cout << "Ignore small size: " << fname << ": " << size1 << "\n";
+		cout << "Ignore small size: " << f.dir_name_ext() << ": " << size1 << "\n";
 		return;
 	}
-	if (fname.Find("-conv") != -1
-		//fname.Find("-conv.mp4") != -1 || fname.Find("-converted.mp4") != -1 ||
-		//fname.Find("-conv.jpg") != -1 || fname.Find("-conv.mp3") != -1
+	if (f.dir_name_ext().Find("-conv") != -1
+		//f.dir_name_ext().Find("-conv.mp4") != -1 || f.dir_name_ext().Find("-converted.mp4") != -1 ||
+		//f.dir_name_ext().Find("-conv.jpg") != -1 || f.dir_name_ext().Find("-conv.mp3") != -1
 		) {
-		cout << "- Ignore converted: " << fname << "\n";
+		cout << "- Ignore converted: " << f.dir_name_ext() << "\n";
 		return;
 	}
-	if (fname.Find("-noconv") != -1) {
-		cout << "- Ignore noconv: " << fname << "\n";
+	if (f.dir_name_ext().Find("-noconv") != -1) {
+		cout << "- Ignore noconv: " << f.dir_name_ext() << "\n";
 		return;
 	}
 	// Run
-	cout << "+ Process: " << fname << "\n";
-	CString fname2 = fnoext + "-conv";
-	if (video_ext[ext]) fname2 += ".mp4";
-	if (jpeg_ext[ext]) fname2 += ".jpg";
-	if (image_ext[ext]) fname2 += ".jpg";
-	if (audio_ext[ext]) fname2 += ".mp3";
-	CString fname3 = fnoext + "-noconv" + ext;
+	cout << "+ Process: " << f.dir_name_ext() << "\n";
+	CString fname2 = f.dir_name() + "-conv";
+	if (video_ext[f.ext()]) fname2 += ".mp4";
+	if (jpeg_ext[f.ext()]) fname2 += ".jpg";
+	if (image_ext[f.ext()]) fname2 += ".jpg";
+	if (audio_ext[f.ext()]) fname2 += ".mp3";
+	CString fname3 = f.dir_name() + "-noconv" + f.ext();
 	if (fileExists(fname2)) {
 		cout << "! Overwriting file: " + fname2 << "\n";
 	}
-	if (video_ext[ext]) {
+	if (video_ext[f.ext()]) {
 		par.Format("-i \"%s\" %s \"%s\"",
-			fname, ffmpeg_par_video, fname2);
+			f.dir_name_ext(), ffmpeg_par_video, fname2);
 		ret = RunTimeout(ffmpeg_path, par, 10 * 24 * 60 * 60 * 1000);
 	}
-	if (image_ext[ext]) {
+	if (image_ext[f.ext()]) {
 		par.Format("convert \"%s\" %s \"%s\"",
-			fname, magick_par_image, fname2);
+			f.dir_name_ext(), magick_par_image, fname2);
 		ret = RunTimeout(magick_path, par, 10 * 24 * 60 * 60 * 1000);
 	}
-	if (jpeg_ext[ext]) {
+	if (jpeg_ext[f.ext()]) {
 		par.Format("-i \"%s\" %s \"%s\"",
-			fname, ffmpeg_par_image, fname2);
+			f.dir_name_ext(), ffmpeg_par_image, fname2);
 		ret = RunTimeout(ffmpeg_path, par, 10 * 24 * 60 * 60 * 1000);
 	}
-	if (audio_ext[ext]) {
+	if (audio_ext[f.ext()]) {
 		par.Format("-i \"%s\" %s \"%s\"",
-			fname, ffmpeg_par_audio, fname2);
+			f.dir_name_ext(), ffmpeg_par_audio, fname2);
 		ret = RunTimeout(ffmpeg_path, par, 10 * 24 * 60 * 60 * 1000);
 	}
 	if (ret) {
 		cout << "! Error during running conversion: " << ret << "\n";
 		RemoveReadonlyAndDelete(fname2);
 		RemoveReadonlyAndDelete(fname3);
-		rename(fname, fname3);
+		rename(f.dir_name_ext(), fname3);
 		return;
 	}
 	if (!fileExists(fname2)) {
 		cout << "! File not found: " + fname2 << "\n";
 		RemoveReadonlyAndDelete(fname2);
 		RemoveReadonlyAndDelete(fname3);
-		rename(fname, fname3);
+		rename(f.dir_name_ext(), fname3);
 		return;
 	}
 	long long size2 = FileSize(fname2);
@@ -548,32 +582,32 @@ void ProcessFile(path path1) {
 		cout << "! Resulting size too small: " << size2 << "\n";
 		RemoveReadonlyAndDelete(fname2);
 		RemoveReadonlyAndDelete(fname3);
-		rename(fname, fname3);
+		rename(f.dir_name_ext(), fname3);
 		return;
 	}
 	if (size2 < size1) {
-		space_release += FileSize(fname);
+		space_release += FileSize(f.dir_name_ext());
 		space_release -= FileSize(fname2);
 		est.Format("+ Compressed %s to %.0lf%% from %.1lf Mb (total free %.1lf Mb)\n",
-			fname, size2 * 100.0 / size1, size1 / 1024.0 / 1024,
+			f.dir_name_ext(), size2 * 100.0 / size1, size1 / 1024.0 / 1024,
 			space_release / 1024.0 / 1024.0);
 		WriteLog(est);
 		// Rename file with XMP tags (if tags are in a separate file)
-		if (rename_xmp && fileExists(fnoext + ".xmp")) {
-			if (fileExists(fnoext + "-conv.xmp")) {
-				RemoveReadonlyAndDelete(fnoext + "-conv.xmp");
-				rename(fnoext + ".xmp", fnoext + "-conv.xmp");
-				cout << "+ Overwriting XMP file: " + fnoext + ".xmp" << "\n";
+		if (rename_xmp && fileExists(f.dir_name() + ".xmp")) {
+			if (fileExists(f.dir_name() + "-conv.xmp")) {
+				RemoveReadonlyAndDelete(f.dir_name() + "-conv.xmp");
+				rename(f.dir_name() + ".xmp", f.dir_name() + "-conv.xmp");
+				cout << "+ Overwriting XMP file: " + f.dir_name() + ".xmp" << "\n";
 			}
 			else {
-				rename(fnoext + ".xmp", fnoext + "-conv.xmp");
-				cout << "+ Renamed XMP file: " + fnoext + ".xmp" << "\n";
+				rename(f.dir_name() + ".xmp", f.dir_name() + "-conv.xmp");
+				cout << "+ Renamed XMP file: " + f.dir_name() + ".xmp" << "\n";
 			}
 		}
 		// Copy exif, XMP and other tags inside file
-		if (jpeg_ext[ext] && save_exif) {
+		if (jpeg_ext[f.ext()] && save_exif) {
 			par.Format("-tagsFromFile \"%s\" \"%s\"",
-				fname, fname2);
+				f.dir_name_ext(), fname2);
 			ret = RunTimeout(exiftool_path, par, 10 * 24 * 60 * 60 * 1000);
 			if (ret) {
 				cout << "! Error copying exif tags: " << ret << "\n";
@@ -587,27 +621,27 @@ void ProcessFile(path path1) {
 			}
 			RemoveReadonlyAndDelete(fname2 + "_original");
 		}
-		RemoveReadonlyAndDelete(fname);
+		RemoveReadonlyAndDelete(f.dir_name_ext());
 	}
 	else {
 		est.Format("- Could not compress %s better (%.0lf%% from %.1lf Mb)\n",
-			fname, size2 * 100.0 / size1, size1 / 1024.0 / 1024);
+			f.dir_name_ext(), size2 * 100.0 / size1, size1 / 1024.0 / 1024);
 		cout << est;
 		// Rename file with XMP tags (if tags are in a separate file)
-		if (rename_xmp && fileExists(fnoext + ".xmp")) {
-			if (fileExists(fnoext + "-noconv.xmp")) {
-				RemoveReadonlyAndDelete(fnoext + "-noconv.xmp");
-				rename(fnoext + ".xmp", fnoext + "-noconv.xmp");
-				cout << "+ Overwriting XMP file: " + fnoext + ".xmp" << "\n";
+		if (rename_xmp && fileExists(f.dir_name() + ".xmp")) {
+			if (fileExists(f.dir_name() + "-noconv.xmp")) {
+				RemoveReadonlyAndDelete(f.dir_name() + "-noconv.xmp");
+				rename(f.dir_name() + ".xmp", f.dir_name() + "-noconv.xmp");
+				cout << "+ Overwriting XMP file: " + f.dir_name() + ".xmp" << "\n";
 			}
 			else {
-				rename(fnoext + ".xmp", fnoext + "-noconv.xmp");
-				cout << "+ Renamed XMP file: " + fnoext + ".xmp" << "\n";
+				rename(f.dir_name() + ".xmp", f.dir_name() + "-noconv.xmp");
+				cout << "+ Renamed XMP file: " + f.dir_name() + ".xmp" << "\n";
 			}
 		}
 		RemoveReadonlyAndDelete(fname2);
 		RemoveReadonlyAndDelete(fname3);
-		rename(fname, fname3);
+		rename(f.dir_name_ext(), fname3);
 	}
 }
 
@@ -702,21 +736,22 @@ void LoadVar(CString * sName, CString * sValue, char* sSearch, CString * Dest) {
 void LoadConfig() {
 	CString st, st2, st3, cur_child;
 	ifstream fs;
-	CString fname = dir + "\\BatchCompress.pl";
-	if (fileExists(fname)) {
-		WriteLog(CTime::GetCurrentTime().Format("%Y-%m-%d %H:%M:%S") + " Detected local config file: " + fname + "\n");
+	CString dir_name_ext = dir + "\\BatchCompress.pl";
+	if (fileExists(dir_name_ext)) {
+		WriteLog(CTime::GetCurrentTime().Format("%Y-%m-%d %H:%M:%S") + " Detected local config file: " + 
+			dir_name_ext + "\n");
 	}
 	else {
 		WriteLog(CTime::GetCurrentTime().Format("%Y-%m-%d %H:%M:%S") + " Using global config file\n");
-		fname = my_dir + "\\BatchCompress.pl";
+		dir_name_ext = my_dir + "\\BatchCompress.pl";
 	}
 	// Check file exists
-	if (!fileExists(fname)) {
-		WriteLog("LoadConfig cannot find file: " + fname + "\n");
+	if (!fileExists(dir_name_ext)) {
+		WriteLog("LoadConfig cannot find file: " + dir_name_ext + "\n");
 		nRetCode = 3;
 		return;
 	}
-	fs.open(fname);
+	fs.open(dir_name_ext);
 	char pch[2550];
 	int pos = 0;
 	int i = 0;
@@ -779,13 +814,13 @@ void LoadConfig() {
 			LoadVar(&st2, &st3, "strip_tocut", &strip_tocut);
 			LoadVar(&st2, &st3, "shorten_filenames_to", &shorten_filenames_to);
 			if (!parameter_found) {
-				WriteLog("Unrecognized parameter '" + st2 + "' = '" + st3 + "' in file " + fname + "\n");
+				WriteLog("Unrecognized parameter '" + st2 + "' = '" + st3 + "' in file " + dir_name_ext + "\n");
 			}
 			if (nRetCode) break;
 		}
 	}
 	fs.close();
-	//est.Format("LoadConfig loaded %d lines from %s", i, fname);
+	//est.Format("LoadConfig loaded %d lines from %s", i, f.dir_name_ext());
 	//WriteLog(est);
 }
 
