@@ -372,7 +372,7 @@ void ProcessFile(path path1) {
 				}
 			}
 			if (!found) {
-				WriteLog("- Cannot shorten file, because too many similar files already exist: " + 
+				WriteLog("! Cannot shorten file, because too many similar files already exist: " + 
 					f.dir_name_ext() + "\n");
 			}
 			else {
@@ -612,7 +612,8 @@ void ProcessFile(path path1) {
 		ret = RunTimeout(ffmpeg_path, par, 10 * 24 * 60 * 60 * 1000);
 	}
 	if (ret) {
-		cout << "! Error during running conversion: " << ret << "\n";
+		est.Format("! Error during running file " + f.dir_name_ext() + " conversion: %d\n", ret);
+		WriteLog(est);
 		RemoveReadonlyAndDelete(fc.dir_name_ext());
 		RemoveReadonlyAndDelete(fn.dir_name_ext());
 		RenameFile(f, fn);
@@ -620,7 +621,8 @@ void ProcessFile(path path1) {
 		return;
 	}
 	if (!fileExists(fc.dir_name_ext())) {
-		cout << "! File not found: " + fc.dir_name_ext() << "\n";
+		est.Format("! File not found: " + f.dir_name_ext() + "\n");
+		WriteLog(est);
 		RemoveReadonlyAndDelete(fc.dir_name_ext());
 		RemoveReadonlyAndDelete(fn.dir_name_ext());
 		RenameFile(f, fn);
@@ -629,7 +631,8 @@ void ProcessFile(path path1) {
 	}
 	long long size2 = FileSize(fc.dir_name_ext());
 	if (size2 < 100) {
-		cout << "! Resulting size too small: " << size2 << "\n";
+		est.Format("! Resulting size of file " + f.dir_name_ext() + " too small: %lld\n", size2);
+		WriteLog(est);
 		RemoveReadonlyAndDelete(fc.dir_name_ext());
 		RemoveReadonlyAndDelete(fn.dir_name_ext());
 		RenameFile(f, fn);
@@ -650,7 +653,8 @@ void ProcessFile(path path1) {
 				f.dir_name_ext(), fc.dir_name_ext());
 			ret = RunTimeout(exiftool_path, par, 10 * 24 * 60 * 60 * 1000);
 			if (ret) {
-				cout << "! Error copying exif tags: " << ret << "\n";
+				est.Format("! Error copying exif tags: %d\n", ret);
+				cout << est;
 				RemoveReadonlyAndDelete(fc.dir_name_ext());
 				return;
 			}
