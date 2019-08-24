@@ -588,23 +588,27 @@ void ProcessFile(path path1) {
 		cout << "! Overwriting file: " + fc.dir_name_ext() << "\n";
 	}
 	if (video_ext[f.ext()]) {
-		par.Format("-i \"%s\" %s \"%s\"",
-			f.dir_name_ext(), ffmpeg_par_video, fc.dir_name_ext());
+		CString par = ffmpeg_par_video;
+		par.Replace("%ifname%", f.dir_name_ext());
+		par.Replace("%ofname%", fc.dir_name_ext());
 		ret = RunTimeout(ffmpeg_path, par, 10 * 24 * 60 * 60 * 1000);
 	}
 	if (image_ext[f.ext()]) {
-		par.Format("convert \"%s\" %s \"%s\"",
-			f.dir_name_ext(), magick_par_image, fc.dir_name_ext());
+		CString par = magick_par_image;
+		par.Replace("%ifname%", f.dir_name_ext());
+		par.Replace("%ofname%", fc.dir_name_ext());
 		ret = RunTimeout(magick_path, par, 10 * 24 * 60 * 60 * 1000);
 	}
 	if (jpeg_ext[f.ext()]) {
-		par.Format("-i \"%s\" %s \"%s\"",
-			f.dir_name_ext(), ffmpeg_par_image, fc.dir_name_ext());
+		CString par = ffmpeg_par_image;
+		par.Replace("%ifname%", f.dir_name_ext());
+		par.Replace("%ofname%", fc.dir_name_ext());
 		ret = RunTimeout(ffmpeg_path, par, 10 * 24 * 60 * 60 * 1000);
 	}
 	if (audio_ext[f.ext()]) {
-		par.Format("-i \"%s\" %s \"%s\"",
-			f.dir_name_ext(), ffmpeg_par_audio, fc.dir_name_ext());
+		CString par = ffmpeg_par_audio;
+		par.Replace("%ifname%", f.dir_name_ext());
+		par.Replace("%ofname%", fc.dir_name_ext());
 		ret = RunTimeout(ffmpeg_path, par, 10 * 24 * 60 * 60 * 1000);
 	}
 	if (ret) {
