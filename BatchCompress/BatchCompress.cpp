@@ -271,6 +271,23 @@ int RenameFile(FileName &f, FileName &f2) {
 	return res;
 }
 
+// Rename file with XMP tags (if tags are in a separate file)
+int RenameExt(FileName &f, FileName &f2, CString ext) {
+	int res = 0;
+	if (rename_xmp && fileExists(f.dir_name() + ext)) {
+		if (fileExists(f2.dir_name() + ext)) {
+			RemoveReadonlyAndDelete(f2.dir_name() + ext);
+			res = rename(f.dir_name() + ext, f2.dir_name() + ext);
+			cout << "+ Overwriting " + ext + " file: " + f.dir_name() + ext << "\n";
+		}
+		else {
+			res = rename(f.dir_name() + ext, f2.dir_name() + ext);
+			cout << "+ Renamed " + ext + " file: " + f.dir_name() + ext << "\n";
+		}
+	}
+	return res;
+}
+
 void ProcessFile(path path1) {
 	CString par, st, st2, st3;
 	int ret;
@@ -295,10 +312,16 @@ void ProcessFile(path path1) {
 					f.dir_name_ext() + " to: " + f2.name() + "\n");
 			}
 			else {
-				RenameFile(f, f2);
-				WriteLog("+ Removed [to cut] tag from file with [cut] tag: " + 
-					f.dir_name_ext() + " to: " + f2.name() + "\n");
-				f = f2;
+				if (RenameFile(f, f2)) {
+					RenameExt(f, f2, ".xmp");
+					WriteLog("+ Removed [to cut] tag from file with [cut] tag: " +
+						f.dir_name_ext() + " to: " + f2.name() + "\n");
+					f = f2;
+				}
+				else {
+					WriteLog("! Cannot remove [to cut] tag from file with [cut] tag: " +
+						f.dir_name_ext() + " to: " + f2.name() + "\n");
+				}
 			}
 		}
 		// Same process without space
@@ -307,14 +330,20 @@ void ProcessFile(path path1) {
 		if (pos != -1 && pos2 != -1) {
 			f2.SetName(f.name().Left(pos) + f.name().Mid(pos2 + 1));
 			if (fileOrDirExists(f2.dir_name_ext())) {
-				WriteLog("! Cannot remove [to cut] tag from file with [cut] tag because inode exists: " + 
+				WriteLog("! Cannot remove [to cut] tag from file with [cut] tag because inode exists: " +
 					f.dir_name_ext() + " to: " + f2.name() + "\n");
 			}
 			else {
-				RenameFile(f, f2);
-				WriteLog("+ Removed [to cut] tag from file with [cut] tag: " +
-					f.dir_name_ext() + " to: " + f2.name() + "\n");
-				f = f2;
+				if (RenameFile(f, f2)) {
+					RenameExt(f, f2, ".xmp");
+					WriteLog("+ Removed [to cut] tag from file with [cut] tag: " +
+						f.dir_name_ext() + " to: " + f2.name() + "\n");
+					f = f2;
+				}
+				else {
+					WriteLog("! Cannot remove [to cut] tag from file with [cut] tag: " +
+						f.dir_name_ext() + " to: " + f2.name() + "\n");
+				}
 			}
 		}
 	}
@@ -350,9 +379,14 @@ void ProcessFile(path path1) {
 				f2 = f3;
 			}
 		}
-		RenameFile(f, f2);
-		WriteLog("+ Shortened file: " + f.dir_name_ext() + " to: " + f2.name() + "\n");
-		f = f2;
+		if (RenameFile(f, f2)) {
+			RenameExt(f, f2, ".xmp");
+			WriteLog("+ Shortened file: " + f.dir_name_ext() + " to: " + f2.name() + "\n");
+			f = f2;
+		}
+		else {
+			WriteLog("! Cannot rename (shorten) file: " + f.dir_name_ext() + " to: " + f2.name() + "\n");
+		}
 	}
 	// Fix link
 	if (f.ext() == ".lnk" && process_links == 1) {
@@ -577,14 +611,16 @@ void ProcessFile(path path1) {
 		cout << "! Error during running conversion: " << ret << "\n";
 		RemoveReadonlyAndDelete(fc.dir_name_ext());
 		RemoveReadonlyAndDelete(fn.dir_name_ext());
-		rename(f.dir_name_ext(), fn.dir_name_ext());
+		RenameFile(f, fn);
+		RenameExt(f, fn, ".xmp");
 		return;
 	}
 	if (!fileExists(fc.dir_name_ext())) {
 		cout << "! File not found: " + fc.dir_name_ext() << "\n";
 		RemoveReadonlyAndDelete(fc.dir_name_ext());
 		RemoveReadonlyAndDelete(fn.dir_name_ext());
-		rename(f.dir_name_ext(), fn.dir_name_ext());
+		RenameFile(f, fn);
+		RenameExt(f, fn, ".xmp");
 		return;
 	}
 	long long size2 = FileSize(fc.dir_name_ext());
@@ -592,7 +628,8 @@ void ProcessFile(path path1) {
 		cout << "! Resulting size too small: " << size2 << "\n";
 		RemoveReadonlyAndDelete(fc.dir_name_ext());
 		RemoveReadonlyAndDelete(fn.dir_name_ext());
-		rename(f.dir_name_ext(), fn.dir_name_ext());
+		RenameFile(f, fn);
+		RenameExt(f, fn, ".xmp");
 		return;
 	}
 	if (size2 < size1) {
@@ -602,18 +639,7 @@ void ProcessFile(path path1) {
 			f.dir_name_ext(), size2 * 100.0 / size1, size1 / 1024.0 / 1024,
 			space_release / 1024.0 / 1024.0);
 		WriteLog(est);
-		// Rename file with XMP tags (if tags are in a separate file)
-		if (rename_xmp && fileExists(f.dir_name() + ".xmp")) {
-			if (fileExists(f.dir_name() + "-conv.xmp")) {
-				RemoveReadonlyAndDelete(f.dir_name() + "-conv.xmp");
-				rename(f.dir_name() + ".xmp", f.dir_name() + "-conv.xmp");
-				cout << "+ Overwriting XMP file: " + f.dir_name() + ".xmp" << "\n";
-			}
-			else {
-				rename(f.dir_name() + ".xmp", f.dir_name() + "-conv.xmp");
-				cout << "+ Renamed XMP file: " + f.dir_name() + ".xmp" << "\n";
-			}
-		}
+		RenameExt(f, fc, ".xmp");
 		// Copy exif, XMP and other tags inside file
 		if (jpeg_ext[f.ext()] && save_exif) {
 			par.Format("-tagsFromFile \"%s\" \"%s\"",
@@ -637,21 +663,10 @@ void ProcessFile(path path1) {
 		est.Format("- Could not compress %s better (%.0lf%% from %.1lf Mb)\n",
 			f.dir_name_ext(), size2 * 100.0 / size1, size1 / 1024.0 / 1024);
 		cout << est;
-		// Rename file with XMP tags (if tags are in a separate file)
-		if (rename_xmp && fileExists(f.dir_name() + ".xmp")) {
-			if (fileExists(f.dir_name() + "-noconv.xmp")) {
-				RemoveReadonlyAndDelete(f.dir_name() + "-noconv.xmp");
-				rename(f.dir_name() + ".xmp", f.dir_name() + "-noconv.xmp");
-				cout << "+ Overwriting XMP file: " + f.dir_name() + ".xmp" << "\n";
-			}
-			else {
-				rename(f.dir_name() + ".xmp", f.dir_name() + "-noconv.xmp");
-				cout << "+ Renamed XMP file: " + f.dir_name() + ".xmp" << "\n";
-			}
-		}
 		RemoveReadonlyAndDelete(fc.dir_name_ext());
 		RemoveReadonlyAndDelete(fn.dir_name_ext());
-		rename(f.dir_name_ext(), fn.dir_name_ext());
+		RenameFile(f, fn);
+		RenameExt(f, fn, ".xmp");
 	}
 }
 
