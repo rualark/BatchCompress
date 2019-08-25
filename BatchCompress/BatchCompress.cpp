@@ -642,7 +642,7 @@ void ProcessFile(const path &path1) {
 	if (size2 < size1) {
 		space_release += FileSize(f.dir_name_ext());
 		space_release -= FileSize(fc.dir_name_ext());
-		est.Format("+ Compressed %s to %.0lf%% from %.1lf Mb (total free %.1lf Mb)\n",
+		est.Format("+ Compressed %s to %.0lf%% from %.1lf Mb (TOTAL FREE %.1lf Mb)\n",
 			f.dir_name_ext(), size2 * 100.0 / size1, size1 / 1024.0 / 1024,
 			space_release / 1024.0 / 1024.0);
 		WriteLog(est);
