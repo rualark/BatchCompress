@@ -223,11 +223,12 @@ int RunTimeout(CString path, CString par, int delay) {
 	return 0;
 }
 
-void RemoveReadonlyAndDelete(CString dir_name_ext) {
+int RemoveReadonlyAndDelete(CString dir_name_ext) {
 	// Remove read-only attribute for all files, because it prevents file deletion
 	SetFileAttributes(dir_name_ext,
 		GetFileAttributes(dir_name_ext) & ~FILE_ATTRIBUTE_READONLY);
-	DeleteFile(dir_name_ext);
+	// returns 0 if error deleting
+	return DeleteFile(dir_name_ext);
 }
 
 class FileName {
@@ -266,9 +267,44 @@ private:
 	CString dir_name_ext_;
 };
 
+class FileLock {
+public:
+	~FileLock() {
+		Unlock();
+	}
+	int Lock(CString fname) {
+		// Do not relock same file
+		if (fname == m_fname) return;
+		Unlock();
+		m_fname = fname;
+		hFile = CreateFile(m_fname, GENERIC_READ | GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 
+			FILE_ATTRIBUTE_NORMAL | FILE_FLAG_WRITE_THROUGH, NULL);
+		if (hFile == INVALID_HANDLE_VALUE) return 1;
+		else return 0;
+	}
+	void Unlock() {
+		if (!m_fname.IsEmpty() && hFile != nullptr && hFile != INVALID_HANDLE_VALUE) {
+			CloseHandle(hFile);
+			RemoveReadonlyAndDelete(m_fname);
+		}
+	}
+private:
+	CString m_fname;
+	HANDLE hFile;
+};
+
+int LockFile(FileLock &lck, FileName &f) {
+	if (lck.Lock(f.dir_name() + ".lck")) {
+		cout << "! File is locked with a lock file from other BatchCompress.exe process. Skipping file: " +
+			f.dir_name_ext() + "\n";
+		return 0;
+	}
+	return 1;
+}
+
 int RenameFile(FileName &f, FileName &f2) {
-	int res = rename(f.dir_name_ext(), f2.dir_name_ext());
-	return res;
+	// returns 0 if successfully renamed
+	return rename(f.dir_name_ext(), f2.dir_name_ext());
 }
 
 // Rename file with XMP tags (if tags are in a separate file)
@@ -289,6 +325,7 @@ int RenameExt(FileName &f, FileName &f2, CString ext) {
 }
 
 void ProcessFile(const path &path1) {
+	FileLock lck;
 	CString par, st, st2, st3;
 	int ret;
 	FileName f;
@@ -300,23 +337,35 @@ void ProcessFile(const path &path1) {
 		getchar();
 		return;
 	}
+	// Remove old lock (can exist if previous BatchCompress process was killed or if another process is running - in this case we will not be able to remove file)
+	if (f.ext() == ".lck") {
+		if (RemoveReadonlyAndDelete(f.dir_name_ext())) {
+			cout << "* Removed old lock file: " + f.dir_name_ext() + "\n";
+		}
+		else {
+			cout << "* Cannot remove lock file because it is probably locked: " + f.dir_name_ext() + "\n";
+		}
+		return;
+	}
 	if (strip_tocut && f.name().Find("[cut") != -1) {
 		int pos, pos2;
 		FileName f2 = f;
 		pos = f.name().Find(" [to cut");
 		pos2 = f.name().Find("]", pos);
 		if (pos != -1 && pos2 != -1) {
+			if (!LockFile(lck, f)) return;
 			f2.SetName(f.name().Left(pos) + f.name().Mid(pos2 + 1));
 			if (fileOrDirExists(f2.dir_name_ext())) {
 				WriteLog("! Cannot remove [to cut] tag from file with [cut] tag because inode exists: " + 
 					f.dir_name_ext() + " to: " + f2.name() + "\n");
 			}
 			else {
-				if (RenameFile(f, f2)) {
+				if (!RenameFile(f, f2)) {
 					RenameExt(f, f2, ".xmp");
 					WriteLog("+ Removed [to cut] tag from file with [cut] tag: " +
 						f.dir_name_ext() + " to: " + f2.name() + "\n");
 					f = f2;
+					if (!LockFile(lck, f)) return;
 				}
 				else {
 					WriteLog("! Cannot remove [to cut] tag from file with [cut] tag: " +
@@ -328,17 +377,19 @@ void ProcessFile(const path &path1) {
 		pos = f.name().Find("[to cut");
 		pos2 = f.name().Find("]", pos);
 		if (pos != -1 && pos2 != -1) {
+			if (!LockFile(lck, f)) return;
 			f2.SetName(f.name().Left(pos) + f.name().Mid(pos2 + 1));
 			if (fileOrDirExists(f2.dir_name_ext())) {
 				WriteLog("! Cannot remove [to cut] tag from file with [cut] tag because inode exists: " +
 					f.dir_name_ext() + " to: " + f2.name() + "\n");
 			}
 			else {
-				if (RenameFile(f, f2)) {
+				if (!RenameFile(f, f2)) {
 					RenameExt(f, f2, ".xmp");
 					WriteLog("+ Removed [to cut] tag from file with [cut] tag: " +
 						f.dir_name_ext() + " to: " + f2.name() + "\n");
 					f = f2;
+					if (!LockFile(lck, f)) return;
 				}
 				else {
 					WriteLog("! Cannot remove [to cut] tag from file with [cut] tag: " +
@@ -348,6 +399,7 @@ void ProcessFile(const path &path1) {
 		}
 	}
 	if (shorten_filenames_to && f.name().GetLength() > shorten_filenames_to) {
+		if (!LockFile(lck, f)) return;
 		// Save 4 characters for added non-duplication id (like "_123")
 		// Save 7 characters for "-conv" or "-noconv"
 		FileName f2 = f;
@@ -379,10 +431,14 @@ void ProcessFile(const path &path1) {
 				f2 = f3;
 			}
 		}
-		if (RenameFile(f, f2)) {
+		if (!RenameFile(f, f2)) {
 			RenameExt(f, f2, ".xmp");
 			WriteLog("+ Shortened file: " + f.dir_name_ext() + " to: " + f2.name() + "\n");
 			f = f2;
+			if (lck.Lock(f.dir_name() + ".lck")) {
+				cout << "! File is locked from other BatchCompress.exe process. Skipping file: " + f.dir_name_ext();
+				return;
+			}
 		}
 		else {
 			WriteLog("! Cannot rename (shorten) file: " + f.dir_name_ext() + " to: " + f2.name() + "\n");
@@ -390,6 +446,7 @@ void ProcessFile(const path &path1) {
 	}
 	// Fix link
 	if (f.ext() == ".lnk" && process_links == 1) {
+		if (!LockFile(lck, f)) return;
 		// Read link
 		cout << "Detected link: " << f.dir_name_ext() << "\n";
 		//cout << "Noext: " << f.dir_name() << "\n";
@@ -473,6 +530,7 @@ void ProcessFile(const path &path1) {
 	}
 	// Copy file to link
 	if (f.ext() == ".lnk" && process_links == 2) {
+		if (!LockFile(lck, f)) return;
 		// Read link
 		cout << "Detected link: " << f.dir_name_ext() << "\n";
 		//cout << "Noext: " << f.dir_name() << "\n";
@@ -528,7 +586,13 @@ void ProcessFile(const path &path1) {
 		RemoveReadonlyAndDelete(f.dir_name_ext());
 		return;
 	}
-	if (f.dir().Find("-noconv") != -1) {
+	// Detects "-conv" substring in filename or dirname
+	if (f.dir_name_ext().Find("-conv") != -1) {
+		cout << "- Ignore converted: " << f.dir_name_ext() << "\n";
+		return;
+	}
+	// Detects "-noconv" substring in filename or dirname
+	if (f.dir_name_ext().Find("-noconv") != -1) {
 		cout << "- Ignore noconv: " << f.dir_name_ext() << "\n";
 		return;
 	}
@@ -541,21 +605,19 @@ void ProcessFile(const path &path1) {
 			return;
 		}
 	}
-	if (remove_ext[f.ext()]) {
-		WriteLog("+ Remove file: " + f.dir_name_ext() + "\n");
-		space_release += FileSize(f.dir_name_ext());
-		RemoveReadonlyAndDelete(f.dir_name_ext());
-		return;
-	}
 	if (ignore_2 && (f.dir_name_ext().Find("_2.jpg") != -1 || f.dir_name_ext().Find("_2.JPG") != -1 ||
 		f.dir_name_ext().Find("_3.jpg") != -1 || f.dir_name_ext().Find("_3.JPG") != -1 || 
 		f.dir_name_ext().Find("_4.jpg") != -1 || f.dir_name_ext().Find("_4.JPG") != -1 || 
 		f.dir_name_ext().Find("_5.jpg") != -1 || f.dir_name_ext().Find("_5.JPG") != -1)) {
-		cout << "- Ignore result: " << f.dir_name_ext() << "\n";
+		cout << "- Ignore manually processed files: " << f.dir_name_ext() << "\n";
 		return;
 	}
 	if (!video_ext[f.ext()] && !image_ext[f.ext()] && !jpeg_ext[f.ext()] && !audio_ext[f.ext()]) {
 		cout << "- Ignore ext: " << f.dir_name_ext() << "\n";
+		return;
+	}
+	if (!fileExists(f.dir_name_ext())) {
+		cout << "! File does not exist, although was listed by iterator: " + f.dir_name_ext() + "\n";
 		return;
 	}
 	long long size1 = FileSize(f.dir_name_ext());
@@ -563,18 +625,8 @@ void ProcessFile(const path &path1) {
 		cout << "Ignore small size: " << f.dir_name_ext() << ": " << size1 << "\n";
 		return;
 	}
-	if (f.dir_name_ext().Find("-conv") != -1
-		//f.dir_name_ext().Find("-conv.mp4") != -1 || f.dir_name_ext().Find("-converted.mp4") != -1 ||
-		//f.dir_name_ext().Find("-conv.jpg") != -1 || f.dir_name_ext().Find("-conv.mp3") != -1
-		) {
-		cout << "- Ignore converted: " << f.dir_name_ext() << "\n";
-		return;
-	}
-	if (f.dir_name_ext().Find("-noconv") != -1) {
-		cout << "- Ignore noconv: " << f.dir_name_ext() << "\n";
-		return;
-	}
 	// Run
+	if (!LockFile(lck, f)) return;
 	cout << "+ Process: " << f.dir_name_ext() << "\n";
 	FileName fc = f;
 	fc.SetName(fc.name() + "-conv");
@@ -616,7 +668,9 @@ void ProcessFile(const path &path1) {
 		WriteLog(est);
 		RemoveReadonlyAndDelete(fc.dir_name_ext());
 		RemoveReadonlyAndDelete(fn.dir_name_ext());
-		RenameFile(f, fn);
+		if (RenameFile(f, fn)) {
+			est.Format("! Cannot rename file to " + fn.dir_name_ext() + "\n");
+		}
 		RenameExt(f, fn, ".xmp");
 		return;
 	}
@@ -625,7 +679,9 @@ void ProcessFile(const path &path1) {
 		WriteLog(est);
 		RemoveReadonlyAndDelete(fc.dir_name_ext());
 		RemoveReadonlyAndDelete(fn.dir_name_ext());
-		RenameFile(f, fn);
+		if (RenameFile(f, fn)) {
+			est.Format("! Cannot rename file to " + fn.dir_name_ext() + "\n");
+		}
 		RenameExt(f, fn, ".xmp");
 		return;
 	}
@@ -635,7 +691,9 @@ void ProcessFile(const path &path1) {
 		WriteLog(est);
 		RemoveReadonlyAndDelete(fc.dir_name_ext());
 		RemoveReadonlyAndDelete(fn.dir_name_ext());
-		RenameFile(f, fn);
+		if (RenameFile(f, fn)) {
+			est.Format("! Cannot rename file to " + fn.dir_name_ext() + "\n");
+		}
 		RenameExt(f, fn, ".xmp");
 		return;
 	}
@@ -673,7 +731,9 @@ void ProcessFile(const path &path1) {
 		cout << est;
 		RemoveReadonlyAndDelete(fc.dir_name_ext());
 		RemoveReadonlyAndDelete(fn.dir_name_ext());
-		RenameFile(f, fn);
+		if (RenameFile(f, fn)) {
+			est.Format("! Cannot rename file to " + fn.dir_name_ext() + "\n");
+		}
 		RenameExt(f, fn, ".xmp");
 	}
 }
