@@ -16,6 +16,7 @@ CString cmd_line, my_path, my_dir, dir, ffmpeg_path, magick_path, lnkedit_path, 
 int nRetCode = 0;
 int run_minimized = 1;
 int ignore_2 = 1;
+int conv_error_noconv = 0;
 CString est;
 int parameter_found = 0;
 
@@ -690,6 +691,7 @@ void ProcessFile(const path &path1) {
 	if (ret) {
 		est.Format("! Error during running file " + f.dir_name_ext() + " conversion: %d\n", ret);
 		WriteLog(est);
+		if (!conv_error_noconv) return;
 		RemoveReadonlyAndDelete(fc.dir_name_ext());
 		RemoveReadonlyAndDelete(fn.dir_name_ext());
 		if (RenameFile(f, fn)) {
@@ -701,6 +703,7 @@ void ProcessFile(const path &path1) {
 	if (!fileExists(fc.dir_name_ext())) {
 		est.Format("! File not found: " + f.dir_name_ext() + "\n");
 		WriteLog(est);
+		if (!conv_error_noconv) return;
 		RemoveReadonlyAndDelete(fc.dir_name_ext());
 		RemoveReadonlyAndDelete(fn.dir_name_ext());
 		if (RenameFile(f, fn)) {
@@ -713,6 +716,7 @@ void ProcessFile(const path &path1) {
 	if (size2 < 100) {
 		est.Format("! Resulting size of file " + f.dir_name_ext() + " too small: %lld\n", size2);
 		WriteLog(est);
+		if (!conv_error_noconv) return;
 		RemoveReadonlyAndDelete(fc.dir_name_ext());
 		RemoveReadonlyAndDelete(fn.dir_name_ext());
 		if (RenameFile(f, fn)) {
