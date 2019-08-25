@@ -38,7 +38,7 @@ CWinApp theApp;
 
 using namespace std;
 
-bool isMatch(const string &str, const string &pattern)
+bool isMatch(const string &str, const string &pattern) 
 {
 	vector<vector<bool>> bool_array(str.size() + 1, vector<bool>(pattern.size() + 1, false));
 	//initialize boolean array to false.
@@ -102,7 +102,7 @@ CString dir_from_path(CString path)
 	return path2;
 }
 
-void AppendLineToFile(CString dir_name_ext, CString st)
+void AppendLineToFile(CString dir_name_ext, CString st) 
 {
 	ofstream outfile;
 	outfile.open(dir_name_ext, ios_base::app);
@@ -110,9 +110,32 @@ void AppendLineToFile(CString dir_name_ext, CString st)
 	outfile.close();
 }
 
-void WriteLog(CString st) {
+void WriteLogShared(CString st) {
 	cout << st;
 	AppendLineToFile(dir + "\\BatchCompress.log", st);
+}
+
+void WriteLog(CString st) {
+	cout << st;
+	DWORD dwWritten; // number of bytes written to file
+	HANDLE hFile;
+	for (int i = 0; i < 2000; ++i) {
+		hFile = CreateFile(dir + "\\BatchCompress.log", FILE_APPEND_DATA, // FILE_GENERIC_WRITE
+			FILE_SHARE_READ, 0, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0);
+		if (hFile != INVALID_HANDLE_VALUE) break;
+		// Sleep if cannot open file
+		//cout << "Waiting for another process: " << i << endl;
+		this_thread::sleep_for(chrono::milliseconds(1));
+	}
+	if (hFile == INVALID_HANDLE_VALUE) {
+		cout << "Error writing log file\n";
+		abort();
+	}
+	//SetFilePointer(hFile, 0, NULL, FILE_END);
+	//WriteFile(hFile, buffer, sizeof(buffer), &dwWritten, 0);
+	WriteFile(hFile, st.GetBuffer(), st.GetLength(), &dwWritten, 0);
+	//SetEndOfFile(hFile);
+	CloseHandle(hFile);
 }
 
 bool dirExists(CString dirName_in)
@@ -274,10 +297,11 @@ public:
 	}
 	int Lock(CString fname) {
 		// Do not relock same file
-		if (fname == m_fname) return;
+		if (fname == m_fname && hFile != nullptr && hFile != INVALID_HANDLE_VALUE)
+			return 0;
 		Unlock();
 		m_fname = fname;
-		hFile = CreateFile(m_fname, GENERIC_READ | GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 
+		hFile = CreateFile(m_fname, GENERIC_READ | GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
 			FILE_ATTRIBUTE_NORMAL | FILE_FLAG_WRITE_THROUGH, NULL);
 		if (hFile == INVALID_HANDLE_VALUE) return 1;
 		else return 0;
@@ -735,6 +759,15 @@ void ProcessFile(const path &path1) {
 			est.Format("! Cannot rename file to " + fn.dir_name_ext() + "\n");
 		}
 		RenameExt(f, fn, ".xmp");
+	}
+}
+
+void test_exclusive_log() {
+	for (int i = 1; i < 1000; ++i) {
+		CString est;
+		est.Format("%d\n", i);
+		WriteLog(est);
+		this_thread::sleep_for(chrono::milliseconds(20));
 	}
 }
 
