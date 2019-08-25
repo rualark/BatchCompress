@@ -38,7 +38,7 @@ CWinApp theApp;
 
 using namespace std;
 
-bool isMatch(string str, string pattern)
+bool isMatch(const string &str, const string &pattern)
 {
 	vector<vector<bool>> bool_array(str.size() + 1, vector<bool>(pattern.size() + 1, false));
 	//initialize boolean array to false.
@@ -169,7 +169,7 @@ void read_file_sv(CString dir_name_ext, vector<CString> &sv) {
 
 CString noext_from_path(CString path)
 {
-	string::size_type pos2 = string(path).find_last_of(".");
+	string::size_type pos2 = string(path).find_last_of('.');
 	CString path2 = string(path).substr(0, pos2).c_str();
 	return path2;
 }
@@ -232,18 +232,18 @@ void RemoveReadonlyAndDelete(CString dir_name_ext) {
 
 class FileName {
 public:
-	void FromPath(path pth) {
+	void FromPath(const path &pth) {
 		dir_ = pth.parent_path().string().c_str();
 		ext_ = pth.extension().string().c_str();
 		name_ = noext_from_path(pth.filename().string().c_str());
 		ext_.MakeLower();
 		UpdateAggregates();
 	}
-	void SetName(CString new_name) {
+	void SetName(const CString &new_name) {
 		name_ = new_name;
 		UpdateAggregates();
 	}
-	void SetExt(CString new_ext) {
+	void SetExt(const CString &new_ext) {
 		ext_ = new_ext;
 		UpdateAggregates();
 	}
@@ -288,7 +288,7 @@ int RenameExt(FileName &f, FileName &f2, CString ext) {
 	return res;
 }
 
-void ProcessFile(path path1) {
+void ProcessFile(const path &path1) {
 	CString par, st, st2, st3;
 	int ret;
 	FileName f;
@@ -714,7 +714,7 @@ void ParseCommandLine() {
 	TCHAR buffer[MAX_PATH];
 	GetCurrentDirectory(MAX_PATH, buffer);
 	CString cur_dir = string(buffer).c_str();
-	if (dir == "") {
+	if (dir.IsEmpty()) {
 		dir = cur_dir;
 	}
 	cout << "This application compresses all video and jpeg files in folder recursively and removes source files if compressed to smaller size\n";
@@ -767,7 +767,7 @@ void LoadVar(CString * sName, CString * sValue, char* sSearch, CString * Dest) {
 }
 
 void LoadConfig() {
-	CString st, st2, st3, cur_child;
+	CString st, st2, st3;
 	ifstream fs;
 	CString dir_name_ext = dir + "\\BatchCompress.pl";
 	if (fileExists(dir_name_ext)) {
