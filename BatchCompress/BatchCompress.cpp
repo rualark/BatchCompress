@@ -320,7 +320,7 @@ private:
 
 int LockFile(FileLock &lck, FileName &f) {
 	if (lck.Lock(f.dir_name() + ".lck")) {
-		cout << "! File is locked with a lock file from other BatchCompress.exe process. Skipping file: " +
+		cout << "# Lock detected: " +
 			f.dir_name_ext() + "\n";
 		return 0;
 	}
@@ -358,7 +358,7 @@ void ProcessFile(const path &path1) {
 		f.FromPath(path1);
 	}
 	catch (...) {
-		cout << "Warning! Next file is unreadable probably because long file name length. Please correct." << endl;
+		cout << "WARNING! Next file is unreadable probably because long file name length. Please correct." << endl;
 		getchar();
 		return;
 	}
@@ -368,7 +368,7 @@ void ProcessFile(const path &path1) {
 			cout << "* Removed old lock file: " + f.dir_name_ext() + "\n";
 		}
 		else {
-			cout << "* Cannot remove lock file because it is probably locked: " + f.dir_name_ext() + "\n";
+			//cout << "* Cannot remove lock file because it is probably locked: " + f.dir_name_ext() + "\n";
 		}
 		return;
 	}
@@ -429,10 +429,10 @@ void ProcessFile(const path &path1) {
 		// Save 7 characters for "-conv" or "-noconv"
 		FileName f2 = f;
 		f2.SetName(f.name().Left(shorten_filenames_to - 11));
-		if (f.name().Find("-conv") != -1) {
+		if (f.name().Find("-conv") != -1 && f2.name().Find("-conv") == -1) {
 			f2.SetName(f2.name() + "-conv");
 		}
-		if (f.name().Find("-noconv") != -1) {
+		if (f.name().Find("-noconv") != -1 && f2.name().Find("-noconv") == -1) {
 			f2.SetName(f2.name() + "-noconv");
 		}
 		if (fileOrDirExists(f2.dir_name_ext())) {
@@ -821,7 +821,7 @@ void ParseCommandLine() {
 	cout << "Program dir: " << my_dir << "\n";
 	cout << "Current dir: " << cur_dir << "\n";
 	cout << "Target dir: " << dir << "\n";
-	ffmpeg_path = my_dir + "\\ffmpeg.exe";
+	ffmpeg_path = my_dir + "\\ffmpeg_bc.exe";
 	magick_path = my_dir + "\\magick.exe";
 	lnkedit_path = my_dir + "\\lnkedit.exe";
 	exiftool_path = my_dir + "\\exiftool.exe";
