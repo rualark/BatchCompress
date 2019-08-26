@@ -428,7 +428,16 @@ void ProcessFile(const path &path1) {
 		// Save 4 characters for added non-duplication id (like "_123")
 		// Save 7 characters for "-conv" or "-noconv"
 		FileName f2 = f;
-		f2.SetName(f.name().Left(shorten_filenames_to - 11));
+		int bpos = f.name().Find('[');
+		int tocut = f.name().GetLength() - shorten_filenames_to + 11;
+		if (bpos == -1 || bpos < shorten_filenames_to / 2 || bpos <= tocut - 5) {
+			// If there is no bracket or bracket is too early
+			f2.SetName(f.name().Left(shorten_filenames_to - 11));
+		}
+		else {
+			// If there is late bracket
+			f2.SetName(f.name().Left(bpos - tocut) + f.name().Mid(bpos));
+		}
 		if (f.name().Find("-conv") != -1 && f2.name().Find("-conv") == -1) {
 			f2.SetName(f2.name() + "-conv");
 		}
@@ -458,7 +467,7 @@ void ProcessFile(const path &path1) {
 		}
 		if (!RenameFile(f, f2)) {
 			RenameExt(f, f2, ".xmp");
-			WriteLog("+ Shortened file: " + f.dir_name_ext() + " to: " + f2.name() + "\n");
+			WriteLog("+ Shortened file: " + f.dir_name_ext() + " to: " + f2.name_ext() + "\n");
 			f = f2;
 			if (lck.Lock(f.dir_name() + ".lck")) {
 				cout << "! File is locked from other BatchCompress.exe process. Skipping file: " + f.dir_name_ext();
