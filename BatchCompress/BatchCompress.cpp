@@ -31,6 +31,8 @@ int rename_xmp = 0;
 int strip_tocut = 1;
 int shorten_filenames_to = 0;
 
+long long space_before_conv_noconv = 0; // Space of converted files or renamed to noconv (before processing)
+long long space_before_conv = 0; // Space of converted files (before processing)
 long long space_release = 0;
 
 // The one and only application object
@@ -663,7 +665,10 @@ void ProcessFile(const path &path1) {
 	}
 	// Run
 	if (!LockFile(lck, f)) return;
-	cout << "+ Process: " << f.dir_name_ext() << "\n";
+	space_before_conv_noconv += size1;
+	est.Format("* Process: " + f.dir_name_ext() + " (%.1lf Mb)\n",
+		size1 / 1024.0 / 1024.0);
+	cout << est;
 	FileName fc = f;
 	fc.SetName(fc.name() + "-conv");
 	if (video_ext[f.ext()]) fc.SetExt(".mp4");
@@ -737,11 +742,17 @@ void ProcessFile(const path &path1) {
 		return;
 	}
 	if (size2 < size1) {
-		space_release += FileSize(f.dir_name_ext());
-		space_release -= FileSize(fc.dir_name_ext());
-		est.Format("+ Compressed %s to %.0lf%% from %.1lf Mb (TOTAL FREE %.1lf Mb)\n",
-			f.dir_name_ext(), size2 * 100.0 / size1, size1 / 1024.0 / 1024,
-			space_release / 1024.0 / 1024.0);
+		space_before_conv += size1;
+		space_release += size1;
+		space_release -= size2;
+		// TF - Total free
+		// CP - Converted percent = after conv / before conv
+		// NCP - Nonconverted-converted percent = after conv / (before conv + before nonconv)
+		est.Format("+ Compressed %s to %.0lf%% from %.1lf Mb (TF %.1lf Mb, CP %.0lf%%, NCP %.0lf%%)\n",
+			f.dir_name_ext(), size2 * 100.0 / size1, size1 / 1024.0 / 1024.0,
+			space_release / 1024.0 / 1024.0,
+			(space_before_conv - space_release) / (space_before_conv + 1),
+			(space_before_conv_noconv - space_release) / (space_before_conv_noconv + 1));
 		WriteLog(est);
 		RenameExt(f, fc, ".xmp");
 		// Copy exif, XMP and other tags inside file
@@ -798,8 +809,10 @@ void process() {
 		}
 	}
 	CString est;
-	est.Format("+ Processed %lld files. Released %.1lf Mb\n",
-		i, space_release / 1024.0 / 1024.0);
+	est.Format("+ Processed %lld files. TF %.1lf Mb, CP %.0lf%%, NCP %.0lf%%. " + scan_dir + "\n",
+		i, space_release / 1024.0 / 1024.0,
+		(space_before_conv - space_release) / (space_before_conv + 1),
+		(space_before_conv_noconv - space_release) / (space_before_conv_noconv + 1));
 	WriteLog(est);
 }
 
@@ -883,7 +896,7 @@ void LoadConfig() {
 			dir_name_ext + "\n");
 	}
 	else {
-		WriteLog(CTime::GetCurrentTime().Format("%Y-%m-%d %H:%M:%S") + " Using global config file\n");
+		WriteLog(CTime::GetCurrentTime().Format("%Y-%m-%d %H:%M:%S") + " Using global config file: " + dir + "\n");
 		dir_name_ext = my_dir + "\\BatchCompress.pl";
 	}
 	// Check file exists
