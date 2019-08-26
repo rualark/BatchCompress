@@ -117,6 +117,8 @@ void WriteLogShared(CString st) {
 }
 
 void WriteLog(CString st) {
+	CString st2 = dir.Left(2) + " " + 
+		CTime::GetCurrentTime().Format("%Y-%m-%d %H:%M:%S") + " " + st;
 	cout << st;
 	DWORD dwWritten; // number of bytes written to file
 	HANDLE hFile;
