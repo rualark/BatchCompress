@@ -13,17 +13,21 @@ FileLock::~FileLock() {
 	Unlock();
 }
 
-int FileLock::Lock(CString fname) {
+int FileLock::Lock(CString fname, CString st) {
 	// Do not relock same file
 	if (fname == m_fname && hFile != INVALID_HANDLE_VALUE)
 		return 0;
 	// Unlock if other file is locked
 	Unlock();
 	m_fname = fname;
-	hFile = CreateFile(m_fname, GENERIC_READ | GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
+	hFile = CreateFile(m_fname, GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_ALWAYS,
 		FILE_ATTRIBUTE_NORMAL | FILE_FLAG_WRITE_THROUGH, NULL);
 	if (hFile == INVALID_HANDLE_VALUE) return 1;
-	else return 0;
+	if (!st.IsEmpty()) {
+		DWORD dwWritten; // number of bytes written to file
+		WriteFile(hFile, st.GetBuffer(), st.GetLength(), &dwWritten, 0);
+	}
+	return 0;
 }
 
 void FileLock::Unlock() {

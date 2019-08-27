@@ -35,6 +35,7 @@ int strip_tocut = 1;
 int shorten_filenames_to = 0;
 int bcid = 0;
 FileLock bcid_lock;
+const int MAX_BCID = 10;
 
 long long space_before_conv_noconv = 0; // Space of converted files or renamed to noconv (before processing)
 long long space_before_conv = 0; // Space of converted files (before processing)
@@ -64,7 +65,7 @@ void WriteLog(CString st) {
 	HANDLE hFile;
 	for (int i = 0; i < 2000; ++i) {
 		hFile = CreateFile(dir + "\\BatchCompress.log", FILE_APPEND_DATA, // FILE_GENERIC_WRITE
-			FILE_SHARE_READ, 0, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0);
+			FILE_SHARE_READ, 0, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_WRITE_THROUGH, 0);
 		if (hFile != INVALID_HANDLE_VALUE) break;
 		// Sleep if cannot open file
 		//cout << "Waiting for another process: " << i << endl;
@@ -140,6 +141,36 @@ int RenameExt(FileName &f, FileName &f2, CString ext) {
 		}
 	}
 	return res;
+}
+
+void GetBCID() {
+	bcid = 0;
+	for (int i = 1; i < MAX_BCID; ++i) {
+		CString fname;
+		fname.Format(dir + "\\BatchCompress.%d", i);
+		if (bcid_lock.Lock(fname, dir)) continue;
+		bcid = i;
+		break;
+	}
+	if (!bcid) {
+		cout << "Cannot allocate BCID. Probably need to increase MAX_BCID = " << MAX_BCID << "\n";
+		abort();
+	}
+}
+
+void CleanBCID() {
+	for (int i = 1; i < MAX_BCID; ++i) {
+		CString fname;
+		fname.Format(dir + "\\BatchCompress.%d", i);
+		RemoveReadonlyAndDelete(fname);
+	}
+}
+
+void CleanBCIDThread() {
+	while (1) {
+		CleanBCID();
+		this_thread::sleep_for(chrono::milliseconds(2000));
+	}
 }
 
 void ProcessFile(const path &path1) {
@@ -764,6 +795,11 @@ void LoadConfig() {
 	//WriteLog(est);
 }
 
+void InitBCID() {
+	GetBCID();
+	thread(CleanBCIDThread).detach();
+}
+
 int main() {
 
   HMODULE hModule = ::GetModuleHandle(nullptr);
@@ -779,6 +815,7 @@ int main() {
 			Init();
 			if (!nRetCode) ParseCommandLine();
 			if (!nRetCode) LoadConfig();
+			if (!nRetCode) InitBCID();
 			if (!nRetCode) process();
     }
   }

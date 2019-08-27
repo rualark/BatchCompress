@@ -2,7 +2,7 @@
 class FileLock {
 public:
 	~FileLock();
-	int Lock(CString fname);
+	int Lock(CString fname, CString st = "");
 	void Unlock();
 private:
 	CString m_fname;
