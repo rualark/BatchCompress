@@ -119,9 +119,9 @@ void WriteLogShared(CString st) {
 }
 
 void WriteLog(CString st) {
-	CString st2 = dir.Left(2) + " " + 
-		CTime::GetCurrentTime().Format("%Y-%m-%d %H:%M:%S") + " " + st;
-	cout << st;
+	CString st2 = CTime::GetCurrentTime().Format("%Y-%m-%d %H:%M:%S") + " " + st;
+	//CString st3 = CTime::GetCurrentTime().Format("%Y-%m-%d %H:%M:%S") + " " + dir.Left(2) + " " + st;
+	cout << st2;
 	DWORD dwWritten; // number of bytes written to file
 	HANDLE hFile;
 	for (int i = 0; i < 2000; ++i) {
@@ -138,7 +138,7 @@ void WriteLog(CString st) {
 	}
 	//SetFilePointer(hFile, 0, NULL, FILE_END);
 	//WriteFile(hFile, buffer, sizeof(buffer), &dwWritten, 0);
-	WriteFile(hFile, st.GetBuffer(), st.GetLength(), &dwWritten, 0);
+	WriteFile(hFile, st2.GetBuffer(), st2.GetLength(), &dwWritten, 0);
 	//SetEndOfFile(hFile);
 	CloseHandle(hFile);
 }
@@ -304,6 +304,7 @@ public:
 		// Do not relock same file
 		if (fname == m_fname && hFile != nullptr && hFile != INVALID_HANDLE_VALUE)
 			return 0;
+		// Unlock if other file is locked
 		Unlock();
 		m_fname = fname;
 		hFile = CreateFile(m_fname, GENERIC_READ | GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
@@ -322,12 +323,20 @@ private:
 	HANDLE hFile;
 };
 
+// Return 1 if file is locked successfully or 0 if not
 int LockFile(FileLock &lck, FileName &f) {
+	// Cannot lock non-existing file
+	if (!fileExists(f.dir_name_ext())) {
+		cout << "! File not found: " + f.dir_name_ext() + "\n";
+		return 0;
+	}
 	if (lck.Lock(f.dir_name() + ".lck")) {
+		// Cannot lock because file is already locked
 		cout << "# Lock detected: " +
 			f.dir_name_ext() + "\n";
 		return 0;
 	}
+	// File locked successfully
 	return 1;
 }
 
@@ -473,10 +482,7 @@ void ProcessFile(const path &path1) {
 			RenameExt(f, f2, ".xmp");
 			WriteLog("+ Shortened file: " + f.dir_name_ext() + " to: " + f2.name_ext() + "\n");
 			f = f2;
-			if (lck.Lock(f.dir_name() + ".lck")) {
-				cout << "! File is locked from other BatchCompress.exe process. Skipping file: " + f.dir_name_ext();
-				return;
-			}
+			if (!LockFile(lck, f)) return;
 		}
 		else {
 			WriteLog("! Cannot rename (shorten) file: " + f.dir_name_ext() + " to: " + f2.name() + "\n");
@@ -655,7 +661,7 @@ void ProcessFile(const path &path1) {
 		return;
 	}
 	if (!fileExists(f.dir_name_ext())) {
-		cout << "! File does not exist, although was listed by iterator: " + f.dir_name_ext() + "\n";
+		cout << "! File not found: " + f.dir_name_ext() + "\n";
 		return;
 	}
 	long long size1 = FileSize(f.dir_name_ext());
@@ -748,11 +754,11 @@ void ProcessFile(const path &path1) {
 		// TF - Total free
 		// CP - Converted percent = after conv / before conv
 		// NCP - Nonconverted-converted percent = after conv / (before conv + before nonconv)
-		est.Format("+ Compressed %s to %.0lf%% from %.1lf Mb (TF %.1lf Mb, CP %.0lf%%, NCP %.0lf%%)\n",
+		est.Format("+ Compressed %s to %.0lf%% from %.1lf Mb (TF %.1lf Mb, CP %lld%%, NCP %lld%%)\n",
 			f.dir_name_ext(), size2 * 100.0 / size1, size1 / 1024.0 / 1024.0,
 			space_release / 1024.0 / 1024.0,
-			(space_before_conv - space_release) / (space_before_conv + 1),
-			(space_before_conv_noconv - space_release) / (space_before_conv_noconv + 1));
+			(space_before_conv - space_release) * 100 / (space_before_conv + 1),
+			(space_before_conv_noconv - space_release) * 100 / (space_before_conv_noconv + 1));
 		WriteLog(est);
 		RenameExt(f, fc, ".xmp");
 		// Copy exif, XMP and other tags inside file
@@ -809,10 +815,10 @@ void process() {
 		}
 	}
 	CString est;
-	est.Format("+ Processed %lld files. TF %.1lf Mb, CP %.0lf%%, NCP %.0lf%%. " + scan_dir + "\n",
+	est.Format("+ Processed %lld files. TF %.1lf Mb, CP %lld%%, NCP %lld%%. " + scan_dir + "\n",
 		i, space_release / 1024.0 / 1024.0,
-		(space_before_conv - space_release) / (space_before_conv + 1),
-		(space_before_conv_noconv - space_release) / (space_before_conv_noconv + 1));
+		(space_before_conv - space_release) * 100 / (space_before_conv + 1),
+		(space_before_conv_noconv - space_release) * 100 / (space_before_conv_noconv + 1));
 	WriteLog(est);
 }
 
@@ -892,11 +898,11 @@ void LoadConfig() {
 	ifstream fs;
 	CString dir_name_ext = dir + "\\BatchCompress.pl";
 	if (fileExists(dir_name_ext)) {
-		WriteLog(CTime::GetCurrentTime().Format("%Y-%m-%d %H:%M:%S") + " Detected local config file: " + 
+		WriteLog("Detected local config file: " + 
 			dir_name_ext + "\n");
 	}
 	else {
-		WriteLog(CTime::GetCurrentTime().Format("%Y-%m-%d %H:%M:%S") + " Using global config file: " + dir + "\n");
+		WriteLog("Using global config file: " + dir + "\n");
 		dir_name_ext = my_dir + "\\BatchCompress.pl";
 	}
 	// Check file exists
