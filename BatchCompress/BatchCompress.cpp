@@ -800,34 +800,36 @@ void InitBCID() {
 	thread(CleanBCIDThread).detach();
 }
 
-int main() {
-
-  HMODULE hModule = ::GetModuleHandle(nullptr);
-
-  if (hModule != nullptr) {
-    // initialize MFC and print and error on failure
-    if (!AfxWinInit(hModule, nullptr, ::GetCommandLine(), 0)) {
-      // TODO: change error code to suit your needs
-      wprintf(L"Fatal Error: MFC initialization failed\n");
-      nRetCode = 1;
-    }
-    else {
-			Init();
-			if (!nRetCode) ParseCommandLine();
-			if (!nRetCode) LoadConfig();
-			if (!nRetCode) InitBCID();
-			if (!nRetCode) process();
-    }
-  }
-  else {
-    // TODO: change error code to suit your needs
-    wprintf(L"Fatal Error: GetModuleHandle failed\n");
-    nRetCode = 1;
-  }
-
+int end_main(int ret_code = -1) {
+	if (ret_code != -1) nRetCode = ret_code;
 #if defined(_DEBUG)
 	cout << "Press any key to continue... ";
 	_getch();
 #endif
 	return nRetCode;
+}
+
+int main() {
+
+  HMODULE hModule = ::GetModuleHandle(nullptr);
+
+	if (hModule == nullptr) {
+		// TODO: change error code to suit your needs
+		wprintf(L"Fatal Error: GetModuleHandle failed\n");
+		return end_main(1);
+	}
+  // initialize MFC and print and error on failure
+  if (!AfxWinInit(hModule, nullptr, ::GetCommandLine(), 0)) {
+    // TODO: change error code to suit your needs
+    wprintf(L"Fatal Error: MFC initialization failed\n");
+		return end_main(1);
+  }
+
+	Init();
+	if (!nRetCode) ParseCommandLine();
+	if (!nRetCode) LoadConfig();
+	if (!nRetCode) InitBCID();
+	if (!nRetCode) process();
+
+	return end_main();
 }
