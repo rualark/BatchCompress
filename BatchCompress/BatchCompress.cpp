@@ -145,11 +145,12 @@ int RenameExt(FileName &f, FileName &f2, CString ext) {
 }
 
 void GetBCID() {
+	CString bcid_st = CTime::GetCurrentTime().Format("%Y-%m-%d %H:%M:%S") + " " + dir;
 	bcid = 0;
 	for (int i = 1; i < MAX_BCID; ++i) {
 		CString fname;
 		fname.Format(dir + "\\BatchCompress.%d", i);
-		if (bcid_lock.Lock(fname, dir)) continue;
+		if (bcid_lock.Lock(fname, bcid_st)) continue;
 		bcid = i;
 		break;
 	}
@@ -169,9 +170,15 @@ void CleanBCID() {
 
 void CleanBCIDThread() {
 	while (1) {
+		this_thread::sleep_for(chrono::milliseconds(5000));
 		CleanBCID();
-		this_thread::sleep_for(chrono::milliseconds(2000));
 	}
+}
+
+void InitBCID() {
+	CleanBCID();
+	GetBCID();
+	thread(CleanBCIDThread).detach();
 }
 
 void ProcessFile(const path &path1) {
@@ -183,7 +190,7 @@ void ProcessFile(const path &path1) {
 		f.FromPath(path1);
 	}
 	catch (...) {
-		cout << "WARNING! Next file is unreadable probably because long file name length. Please correct." << endl;
+		WriteLog("WARNING! Next file is unreadable probably because long file name length. Please correct.\n");
 		getchar();
 		return;
 	}
@@ -198,13 +205,18 @@ void ProcessFile(const path &path1) {
 		return;
 	}
 	if (strip_tocut && f.name().Find("[cut") != -1) {
-		int pos, pos2;
+		int pos, pos2, pos3, pos4;
 		FileName f2 = f;
 		pos = f.name().Find(" [to cut");
 		pos2 = f.name().Find("]", pos);
-		if (pos != -1 && pos2 != -1) {
+		pos3 = f.name().Find("[", pos);
+		if (pos2 == -1 && pos3 > 0) pos4 = pos3 - 1;
+		else if (pos2 > 0 && pos3 == -1) pos4 = pos2;
+		else if (pos2 > 0 && pos3 > 0) pos4 = min(pos2, pos3 - 1);
+		else pos4 = -1;
+		if (pos != -1 && pos4 != -1) {
 			if (!LockFile(lck, f)) return;
-			f2.SetName(f.name().Left(pos) + f.name().Mid(pos2 + 1));
+			f2.SetName(f.name().Left(pos) + f.name().Mid(pos4 + 1));
 			if (fileOrDirExists(f2.dir_name_ext())) {
 				WriteLog("! Cannot remove [to cut] tag from file with [cut] tag because inode exists: " + 
 					f.dir_name_ext() + " to: " + f2.name() + "\n");
@@ -226,9 +238,14 @@ void ProcessFile(const path &path1) {
 		// Same process without space
 		pos = f.name().Find("[to cut");
 		pos2 = f.name().Find("]", pos);
-		if (pos != -1 && pos2 != -1) {
+		pos3 = f.name().Find("[", pos);
+		if (pos2 == -1 && pos3 > 0) pos4 = pos3 - 1;
+		else if (pos2 > 0 && pos3 == -1) pos4 = pos2;
+		else if (pos2 > 0 && pos3 > 0) pos4 = min(pos2, pos3 - 1);
+		else pos4 = -1;
+		if (pos != -1 && pos4 != -1) {
 			if (!LockFile(lck, f)) return;
-			f2.SetName(f.name().Left(pos) + f.name().Mid(pos2 + 1));
+			f2.SetName(f.name().Left(pos) + f.name().Mid(pos4 + 1));
 			if (fileOrDirExists(f2.dir_name_ext())) {
 				WriteLog("! Cannot remove [to cut] tag from file with [cut] tag because inode exists: " +
 					f.dir_name_ext() + " to: " + f2.name() + "\n");
@@ -796,11 +813,6 @@ void LoadConfig() {
 	//WriteLog(est);
 }
 
-void InitBCID() {
-	GetBCID();
-	thread(CleanBCIDThread).detach();
-}
-
 int end_main(int ret_code = -1) {
 	if (ret_code != -1) nRetCode = ret_code;
 #if defined(_DEBUG)
@@ -812,7 +824,7 @@ int end_main(int ret_code = -1) {
 
 BOOL WINAPI ConsoleHandlerRoutine(DWORD dwCtrlType) {
 	if (dwCtrlType == CTRL_CLOSE_EVENT) {
-		WriteLog("! Program aborted");
+		WriteLog("! Program aborted\n");
 		close_flag = 1;
 		bcid_lock.Unlock();
 		return TRUE;
