@@ -36,6 +36,7 @@ int shorten_filenames_to = 0;
 int bcid = 0;
 FileLock bcid_lock;
 const int MAX_BCID = 10;
+atomic<int> close_flag = 0;
 
 long long space_before_conv_noconv = 0; // Space of converted files or renamed to noconv (before processing)
 long long space_before_conv = 0; // Space of converted files (before processing)
@@ -60,7 +61,6 @@ void WriteLogShared(CString st) {
 void WriteLog(CString st) {
 	CString st2 = CTime::GetCurrentTime().Format("%Y-%m-%d %H:%M:%S") + " " + st;
 	//CString st3 = CTime::GetCurrentTime().Format("%Y-%m-%d %H:%M:%S") + " " + dir.Left(2) + " " + st;
-	cout << st2;
 	DWORD dwWritten; // number of bytes written to file
 	HANDLE hFile;
 	for (int i = 0; i < 2000; ++i) {
@@ -71,6 +71,7 @@ void WriteLog(CString st) {
 		//cout << "Waiting for another process: " << i << endl;
 		this_thread::sleep_for(chrono::milliseconds(1));
 	}
+	cout << st2;
 	if (hFile == INVALID_HANDLE_VALUE) {
 		cout << "Error writing log file\n";
 		abort();
@@ -809,6 +810,16 @@ int end_main(int ret_code = -1) {
 	return nRetCode;
 }
 
+BOOL WINAPI ConsoleHandlerRoutine(DWORD dwCtrlType) {
+	if (dwCtrlType == CTRL_CLOSE_EVENT) {
+		WriteLog("! Program aborted");
+		close_flag = 1;
+		bcid_lock.Unlock();
+		return TRUE;
+	}
+	return FALSE;
+}
+
 int main() {
 
   HMODULE hModule = ::GetModuleHandle(nullptr);
@@ -825,6 +836,7 @@ int main() {
 		return end_main(1);
   }
 
+	SetConsoleCtrlHandler(ConsoleHandlerRoutine, TRUE);
 	Init();
 	if (!nRetCode) ParseCommandLine();
 	if (!nRetCode) LoadConfig();

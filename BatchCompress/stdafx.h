@@ -50,11 +50,11 @@
 using namespace std;
 #include <chrono>
 using namespace std::chrono;
-using namespace std::tr2::sys;
+using namespace std::filesystem;
 #include "dirent.h"
 #include <windows.h>
 #include <tlhelp32.h>
-
+#include <atomic>
 
 
 // TODO: reference additional headers your program requires here
