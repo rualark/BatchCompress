@@ -30,12 +30,30 @@
     <ClInclude Include="BatchCompress.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="FileLock.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="FileName.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="lib.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="BatchCompress.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="FileLock.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="lib.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="FileName.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

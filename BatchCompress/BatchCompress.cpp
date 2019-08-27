@@ -5,6 +5,9 @@
 
 #include "stdafx.h"
 #include "BatchCompress.h"
+#include "lib.h"
+#include "FileName.h"
+#include "FileLock.h"
 #include <string>
 
 #ifdef _DEBUG
@@ -30,6 +33,8 @@ int save_exif = 0;
 int rename_xmp = 0;
 int strip_tocut = 1;
 int shorten_filenames_to = 0;
+int bcid = 0;
+FileLock bcid_lock;
 
 long long space_before_conv_noconv = 0; // Space of converted files or renamed to noconv (before processing)
 long long space_before_conv = 0; // Space of converted files (before processing)
@@ -41,76 +46,9 @@ CWinApp theApp;
 
 using namespace std;
 
-bool isMatch(const string &str, const string &pattern) 
-{
-	vector<vector<bool>> bool_array(str.size() + 1, vector<bool>(pattern.size() + 1, false));
-	//initialize boolean array to false.
-	for (int i = 0; i <= str.size(); ++i)
-	{
-		for (int j = 0; j <= pattern.size(); ++j)
-		{
-			bool_array[i][j] = 0;
-		}
-	}
-	// base case
-	bool_array[0][0] = true;
-	for (int i = 1; i <= str.size(); i++)
-	{
-		for (int j = 1; j <= pattern.size(); j++)
-		{
-			if (str[i - 1] == pattern[j - 1] || pattern[j - 1] == '?')
-				bool_array[i][j] = bool_array[i - 1][j - 1];
-
-			else if (pattern[j - 1] == '*')
-				bool_array[i][j] = bool_array[i][j - 1] || bool_array[i - 1][j];
-		}
-	}
-	return bool_array[str.size()][pattern.size()];
-}
-
-uintmax_t FileSize2(CString dir_name_ext) {
-	path pth = dir_name_ext.GetString();
-	uintmax_t sz = -1;
-	try {
-		sz = file_size(pth);
-	}
-	catch (filesystem_error& e) {
-		std::cout << e.what() << '\n';
-	}
-	return sz;
-}
-
-__int64 FileSize(CString dir_name_ext) {
-	HANDLE hFile = CreateFile(dir_name_ext, GENERIC_READ,
-		FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING,
-		FILE_ATTRIBUTE_NORMAL, NULL);
-	if (hFile == INVALID_HANDLE_VALUE)
-		return -1; // error condition, could call GetLastError to find out more
-
-	LARGE_INTEGER size;
-	if (!GetFileSizeEx(hFile, &size))
-	{
-		CloseHandle(hFile);
-		return -1; // error condition, could call GetLastError to find out more
-	}
-
-	CloseHandle(hFile);
-	return size.QuadPart;
-}
-
-CString dir_from_path(CString path)
-{
-	string::size_type pos = string(path).find_last_of("\\/");
-	CString path2 = string(path).substr(0, pos).c_str();
-	return path2;
-}
-
-void AppendLineToFile(CString dir_name_ext, CString st) 
-{
-	ofstream outfile;
-	outfile.open(dir_name_ext, ios_base::app);
-	outfile << st;
-	outfile.close();
+int RenameFile(FileName &f, FileName &f2) {
+	// returns 0 if successfully renamed
+	return rename(f.dir_name_ext(), f2.dir_name_ext());
 }
 
 void WriteLogShared(CString st) {
@@ -143,87 +81,6 @@ void WriteLog(CString st) {
 	CloseHandle(hFile);
 }
 
-bool dirExists(CString dirName_in)
-{
-	DWORD ftyp = GetFileAttributesA(dirName_in);
-	if (ftyp == INVALID_FILE_ATTRIBUTES)
-		return false;  //something is wrong with your path!
-
-	if (ftyp & FILE_ATTRIBUTE_DIRECTORY)
-		return true;   // this is a directory!
-
-	return false;    // this is not a directory!
-}
-
-bool fileExists(CString dirName_in)
-{
-	DWORD ftyp = GetFileAttributesA(dirName_in);
-	if (ftyp == INVALID_FILE_ATTRIBUTES)
-		return false;  //something is wrong with your path!
-
-	if (ftyp & FILE_ATTRIBUTE_DIRECTORY)
-		return false;   // this is a directory!
-
-	return true;    // this is not a directory!
-}
-
-bool fileOrDirExists(CString dirName_in)
-{
-	DWORD ftyp = GetFileAttributesA(dirName_in);
-	if (ftyp == INVALID_FILE_ATTRIBUTES)
-		return false;  //something is wrong with your path!
-
-	return true;    // this is not a directory!
-}
-
-void read_file_sv(CString dir_name_ext, vector<CString> &sv) {
-	// Load file
-	ifstream fs;
-	if (!fileExists(dir_name_ext)) {
-		cout << "Cannot find file " + dir_name_ext + "\n";
-		return;
-	}
-	fs.open(dir_name_ext);
-	char pch[2550];
-	CString st2;
-	sv.clear();
-	while (fs.good()) {
-		fs.getline(pch, 2550);
-		st2 = pch;
-		sv.push_back(st2);
-	}
-	fs.close();
-}
-
-CString noext_from_path(CString path)
-{
-	string::size_type pos2 = string(path).find_last_of('.');
-	CString path2 = string(path).substr(0, pos2).c_str();
-	return path2;
-}
-
-CString ext_from_path(CString path)
-{
-	string::size_type pos2 = string(path).find_last_of("./");
-	CString path2 = string(path).substr(pos2 + 1, path.GetLength()).c_str();
-	return path2;
-}
-
-CString fname_from_path(CString path)
-{
-	string::size_type pos = string(path).find_last_of("\\/");
-	CString path2 = string(path).substr(pos + 1).c_str();
-	return path2;
-}
-
-CString bname_from_path(CString path)
-{
-	string::size_type pos = string(path).find_last_of("\\/");
-	string::size_type pos2 = string(path).find_last_of("./");
-	CString path2 = string(path).substr(pos + 1, pos2 - pos - 1).c_str();
-	return path2;
-}
-
 // Start process, wait for some time. If process did not finish, this is an error
 int RunTimeout(CString path, CString par, int delay) {
 	DWORD ecode;
@@ -251,78 +108,6 @@ int RunTimeout(CString path, CString par, int delay) {
 	return 0;
 }
 
-int RemoveReadonlyAndDelete(CString dir_name_ext) {
-	// Remove read-only attribute for all files, because it prevents file deletion
-	SetFileAttributes(dir_name_ext,
-		GetFileAttributes(dir_name_ext) & ~FILE_ATTRIBUTE_READONLY);
-	// returns 0 if error deleting
-	return DeleteFile(dir_name_ext);
-}
-
-class FileName {
-public:
-	void FromPath(const path &pth) {
-		dir_ = pth.parent_path().string().c_str();
-		ext_ = pth.extension().string().c_str();
-		name_ = noext_from_path(pth.filename().string().c_str());
-		ext_.MakeLower();
-		UpdateAggregates();
-	}
-	void SetName(const CString &new_name) {
-		name_ = new_name;
-		UpdateAggregates();
-	}
-	void SetExt(const CString &new_ext) {
-		ext_ = new_ext;
-		UpdateAggregates();
-	}
-	void UpdateAggregates() {
-		dir_name_ = dir_ + "\\" + name_;
-		name_ext_ = name_ + ext_;
-		dir_name_ext_ = dir_ + "\\" + name_ + ext_;
-	}
-	// Get
-	const CString &dir() { return dir_; }
-	const CString &name() { return name_; }
-	const CString &ext() { return ext_; }
-	const CString dir_name_ext() { return dir_name_ext_; }
-	const CString &dir_name() { return dir_name_; }
-	const CString &name_ext() { return name_ext_; }
-private:
-	CString dir_, name_, ext_;
-	CString dir_name_;
-	CString name_ext_;
-	CString dir_name_ext_;
-};
-
-class FileLock {
-public:
-	~FileLock() {
-		Unlock();
-	}
-	int Lock(CString fname) {
-		// Do not relock same file
-		if (fname == m_fname && hFile != nullptr && hFile != INVALID_HANDLE_VALUE)
-			return 0;
-		// Unlock if other file is locked
-		Unlock();
-		m_fname = fname;
-		hFile = CreateFile(m_fname, GENERIC_READ | GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
-			FILE_ATTRIBUTE_NORMAL | FILE_FLAG_WRITE_THROUGH, NULL);
-		if (hFile == INVALID_HANDLE_VALUE) return 1;
-		else return 0;
-	}
-	void Unlock() {
-		if (!m_fname.IsEmpty() && hFile != nullptr && hFile != INVALID_HANDLE_VALUE) {
-			CloseHandle(hFile);
-			RemoveReadonlyAndDelete(m_fname);
-		}
-	}
-private:
-	CString m_fname;
-	HANDLE hFile;
-};
-
 // Return 1 if file is locked successfully or 0 if not
 int LockFile(FileLock &lck, FileName &f) {
 	// Cannot lock non-existing file
@@ -338,11 +123,6 @@ int LockFile(FileLock &lck, FileName &f) {
 	}
 	// File locked successfully
 	return 1;
-}
-
-int RenameFile(FileName &f, FileName &f2) {
-	// returns 0 if successfully renamed
-	return rename(f.dir_name_ext(), f2.dir_name_ext());
 }
 
 // Rename file with XMP tags (if tags are in a separate file)
