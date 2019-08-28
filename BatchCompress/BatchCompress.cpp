@@ -14,6 +14,12 @@
 #define new DEBUG_NEW
 #endif
 
+struct MaskPar {
+	MaskPar(CString m, CString p) : mask(m), par(p) {}
+	CString mask;
+	CString par;
+};
+
 map<CString, int> audio_ext, video_ext, jpeg_ext, image_ext, remove_ext, ignore_match;
 CString cmd_line, my_path, my_dir, dir, ffmpeg_path, magick_path, lnkedit_path, exiftool_path;
 int nRetCode = 0;
@@ -24,10 +30,10 @@ CString est;
 int parameter_found = 0;
 
 // Config
-CString ffmpeg_par_audio = "-y -vn -ar 44100 -ac 2 -f mp3 -ab 192k";
-CString ffmpeg_par_video = "-y -preset slow -crf 20 -b:a 128k";
-CString ffmpeg_par_image = "-y -q:v 2 -vf scale='min(1920,iw)':-2";
-CString magick_par_image = "-resize 1920";
+vector<MaskPar> ffmpeg_par_audio;
+vector<MaskPar> ffmpeg_par_video;
+vector<MaskPar> ffmpeg_par_image;
+vector<MaskPar> magick_par_image;
 int process_links = 0;
 int save_exif = 0;
 int rename_xmp = 0;
@@ -179,6 +185,15 @@ void InitBCID() {
 	CleanBCID();
 	GetBCID();
 	thread(CleanBCIDThread).detach();
+}
+
+CString GetParByMask(CString fname, vector<MaskPar> &mp) {
+	for (int i = 0; i < mp.size(); ++i) {
+		string ss(fname);
+		string sp(mp[i].mask);
+		if (isMatch(ss, sp)) return mp[i].par;
+	}
+	return "";
 }
 
 void ProcessFile(const path &path1) {
@@ -516,25 +531,41 @@ void ProcessFile(const path &path1) {
 		cout << "! Overwriting file: " + fc.dir_name_ext() << "\n";
 	}
 	if (video_ext[f.ext()]) {
-		CString par = ffmpeg_par_video;
+		CString par = GetParByMask(f.name(), ffmpeg_par_video);
+		if (par.IsEmpty()) {
+			cout << "! Will not process file because no mask match detected\n";
+			return;
+		}
 		par.Replace("%ifname%", f.dir_name_ext());
 		par.Replace("%ofname%", fc.dir_name_ext());
 		ret = RunTimeout(ffmpeg_path, par, 10 * 24 * 60 * 60 * 1000);
 	}
 	if (image_ext[f.ext()]) {
-		CString par = magick_par_image;
+		CString par = GetParByMask(f.name(), magick_par_image);
+		if (par.IsEmpty()) {
+			cout << "! Will not process file because no mask match detected\n";
+			return;
+		}
 		par.Replace("%ifname%", f.dir_name_ext());
 		par.Replace("%ofname%", fc.dir_name_ext());
 		ret = RunTimeout(magick_path, par, 10 * 24 * 60 * 60 * 1000);
 	}
 	if (jpeg_ext[f.ext()]) {
-		CString par = ffmpeg_par_image;
+		CString par = GetParByMask(f.name(), ffmpeg_par_image);
+		if (par.IsEmpty()) {
+			cout << "! Will not process file because no mask match detected\n";
+			return;
+		}
 		par.Replace("%ifname%", f.dir_name_ext());
 		par.Replace("%ofname%", fc.dir_name_ext());
 		ret = RunTimeout(ffmpeg_path, par, 10 * 24 * 60 * 60 * 1000);
 	}
 	if (audio_ext[f.ext()]) {
-		CString par = ffmpeg_par_audio;
+		CString par = GetParByMask(f.name(), ffmpeg_par_audio);
+		if (par.IsEmpty()) {
+			cout << "! Will not process file because no mask match detected\n";
+			return;
+		}
 		par.Replace("%ifname%", f.dir_name_ext());
 		par.Replace("%ofname%", fc.dir_name_ext());
 		ret = RunTimeout(ffmpeg_path, par, 10 * 24 * 60 * 60 * 1000);
@@ -724,13 +755,40 @@ void LoadVar(CString * sName, CString * sValue, char* sSearch, CString * Dest) {
 
 void LoadConfigMap(const CString &pname, const CString &pval, const CString &mname, map<CString, int> &mp) {
 	if (pname == mname) {
+		++parameter_found;
 		if (pval == "#CLEAR") {
 			mp.clear();
 		}
 		else {
 			mp[pval] = 1;
 		}
+	}
+}
+
+void LoadPar(const CString &pname, const CString &pval, const CString &mname, vector<MaskPar> &mp) {
+	if (pname == mname) {
 		++parameter_found;
+		if (pval == "#CLEAR") {
+			mp.clear();
+		}
+		else {
+			int pos = pval.Find("|");
+			if (pos == -1) {
+				cout << "Parameter " + pname + " should have mask and value, separated with | sign\n";
+				nRetCode = 12;
+				return;
+			}
+			CString mask = pval.Left(pos).Trim();
+			CString par = pval.Mid(pos + 1).Trim();
+			// Search for this mask
+			for (int i = 0; i < mp.size(); ++i) {
+				if (mp[i].mask == mask) {
+					mp[i].par = par;
+					return;
+				}
+			}
+			mp.push_back(MaskPar(mask, par));
+		}
 	}
 }
 
@@ -780,10 +838,10 @@ void LoadConfigFile(const CString &fname) {
 			LoadConfigMap(st2, st3, "audio_ext", audio_ext);
 			LoadConfigMap(st2, st3, "remove_ext", remove_ext);
 			LoadConfigMap(st2, st3, "ignore_match", ignore_match);
-			LoadVar(&st2, &st3, "ffmpeg_par_audio", &ffmpeg_par_audio);
-			LoadVar(&st2, &st3, "ffmpeg_par_video", &ffmpeg_par_video);
-			LoadVar(&st2, &st3, "ffmpeg_par_image", &ffmpeg_par_image);
-			LoadVar(&st2, &st3, "magick_par_image", &magick_par_image);
+			LoadPar(st2, st3, "ffmpeg_par_audio", ffmpeg_par_audio);
+			LoadPar(st2, st3, "ffmpeg_par_video", ffmpeg_par_video);
+			LoadPar(st2, st3, "ffmpeg_par_image", ffmpeg_par_image);
+			LoadPar(st2, st3, "magick_par_image", magick_par_image);
 			LoadVar(&st2, &st3, "ignore_2", &ignore_2);
 			LoadVar(&st2, &st3, "process_links", &process_links);
 			LoadVar(&st2, &st3, "save_exif", &save_exif);
