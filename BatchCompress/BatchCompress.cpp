@@ -734,7 +734,7 @@ void LoadConfigMap(const CString &pname, const CString &pval, const CString &mna
 	}
 }
 
-void LoadConfigFile(CString fname) {
+void LoadConfigFile(const CString &fname) {
 	CString st, st2, st3;
 	ifstream fs;
 	// Check file exists
@@ -791,7 +791,7 @@ void LoadConfigFile(CString fname) {
 			LoadVar(&st2, &st3, "strip_tocut", &strip_tocut);
 			LoadVar(&st2, &st3, "shorten_filenames_to", &shorten_filenames_to);
 			if (!parameter_found) {
-				WriteLog("Unrecognized parameter '" + st2 + "' = '" + st3 + "' in file " + dir_name_ext + "\n");
+				WriteLog("Unrecognized parameter '" + st2 + "' = '" + st3 + "' in file " + fname + "\n");
 			}
 			if (nRetCode) break;
 		}
