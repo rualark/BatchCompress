@@ -722,25 +722,16 @@ void LoadVar(CString * sName, CString * sValue, char* sSearch, CString * Dest) {
 	}
 }
 
-void LoadConfig() {
+void LoadConfigFile(CString fname) {
 	CString st, st2, st3;
 	ifstream fs;
-	CString dir_name_ext = dir + "\\BatchCompress.pl";
-	if (fileExists(dir_name_ext)) {
-		WriteLog("Detected local config file: " + 
-			dir_name_ext + "\n");
-	}
-	else {
-		WriteLog("Using global config file: " + dir + "\n");
-		dir_name_ext = my_dir + "\\BatchCompress.pl";
-	}
 	// Check file exists
-	if (!fileExists(dir_name_ext)) {
-		WriteLog("LoadConfig cannot find file: " + dir_name_ext + "\n");
+	if (!fileExists(fname)) {
+		WriteLog("LoadConfig cannot find file: " + fname + "\n");
 		nRetCode = 3;
 		return;
 	}
-	fs.open(dir_name_ext);
+	fs.open(fname);
 	char pch[2550];
 	int pos = 0;
 	int i = 0;
@@ -811,6 +802,19 @@ void LoadConfig() {
 	fs.close();
 	//est.Format("LoadConfig loaded %d lines from %s", i, f.dir_name_ext());
 	//WriteLog(est);
+}
+
+void LoadConfig() {
+	CString dir_name_ext = dir + "\\BatchCompress.pl";
+	if (fileExists(dir_name_ext)) {
+		WriteLog("Detected local config file: " + 
+			dir_name_ext + "\n");
+	}
+	else {
+		WriteLog("Using global config file: " + dir + "\n");
+		dir_name_ext = my_dir + "\\BatchCompress.pl";
+	}
+	LoadConfigFile(dir_name_ext);
 }
 
 int end_main(int ret_code = -1) {
