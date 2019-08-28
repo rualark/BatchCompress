@@ -722,6 +722,18 @@ void LoadVar(CString * sName, CString * sValue, char* sSearch, CString * Dest) {
 	}
 }
 
+void LoadConfigMap(const CString &pname, const CString &pval, const CString &mname, map<CString, int> &mp) {
+	if (pname == mname) {
+		if (pval == "#CLEAR") {
+			mp.clear();
+		}
+		else {
+			mp[pval] = 1;
+		}
+		++parameter_found;
+	}
+}
+
 void LoadConfigFile(CString fname) {
 	CString st, st2, st3;
 	ifstream fs;
@@ -763,26 +775,11 @@ void LoadConfigFile(CString fname) {
 			int idata = atoi(st2);
 			float fdata = atof(st3);
 			parameter_found = 0;
-			if (st2 == "image_ext") {
-				image_ext[st3] = 1;
-				++parameter_found;
-			}
-			if (st2 == "video_ext") {
-				video_ext[st3] = 1;
-				++parameter_found;
-			}
-			if (st2 == "remove_ext") {
-				remove_ext[st3] = 1;
-				++parameter_found;
-			}
-			if (st2 == "ignore_match") {
-				ignore_match[st3] = 1;
-				++parameter_found;
-			}
-			if (st2 == "audio_ext") {
-				audio_ext[st3] = 1;
-				++parameter_found;
-			}
+			LoadConfigMap(st2, st3, "image_ext", image_ext);
+			LoadConfigMap(st2, st3, "video_ext", video_ext);
+			LoadConfigMap(st2, st3, "audio_ext", audio_ext);
+			LoadConfigMap(st2, st3, "remove_ext", remove_ext);
+			LoadConfigMap(st2, st3, "ignore_match", ignore_match);
 			LoadVar(&st2, &st3, "ffmpeg_par_audio", &ffmpeg_par_audio);
 			LoadVar(&st2, &st3, "ffmpeg_par_video", &ffmpeg_par_video);
 			LoadVar(&st2, &st3, "ffmpeg_par_image", &ffmpeg_par_image);
@@ -805,16 +802,15 @@ void LoadConfigFile(CString fname) {
 }
 
 void LoadConfig() {
-	CString dir_name_ext = dir + "\\BatchCompress.pl";
-	if (fileExists(dir_name_ext)) {
-		WriteLog("Detected local config file: " + 
-			dir_name_ext + "\n");
+	// Always load global config file
+	LoadConfigFile(my_dir + "\\BatchCompress.pl");
+	// Load local config file if exists
+	if (fileExists(dir + "\\BatchCompress.pl")) {
+		WriteLog("Overriding global config with local config file: " + dir + "\n");
 	}
 	else {
-		WriteLog("Using global config file: " + dir + "\n");
-		dir_name_ext = my_dir + "\\BatchCompress.pl";
+		WriteLog("Using only global config file: " + dir + "\n");
 	}
-	LoadConfigFile(dir_name_ext);
 }
 
 int end_main(int ret_code = -1) {
