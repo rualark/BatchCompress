@@ -189,9 +189,8 @@ void InitBCID() {
 
 CString GetParByMask(CString fname, vector<MaskPar> &mp) {
 	for (int i = 0; i < mp.size(); ++i) {
-		string ss(fname);
-		string sp(mp[i].mask);
-		if (isMatch(ss, sp)) return mp[i].par;
+		if (cstring_regex_match(fname, mp[i].mask)) return mp[i].par;
+		cout << "# No match of " + fname + " with " + mp[i].mask + "\n";
 	}
 	return "";
 }
@@ -223,59 +222,63 @@ void ProcessFile(const path &path1) {
 		int pos, pos2, pos3, pos4;
 		FileName f2 = f;
 		pos = f.name().Find(" [to cut");
-		pos2 = f.name().Find("]", pos);
-		pos3 = f.name().Find("[", pos);
-		if (pos2 == -1 && pos3 > 0) pos4 = pos3 - 1;
-		else if (pos2 > 0 && pos3 == -1) pos4 = pos2;
-		else if (pos2 > 0 && pos3 > 0) pos4 = min(pos2, pos3 - 1);
-		else pos4 = -1;
-		if (pos != -1 && pos4 != -1) {
-			if (!LockFile(lck, f)) return;
-			f2.SetName(f.name().Left(pos) + f.name().Mid(pos4 + 1));
-			if (fileOrDirExists(f2.dir_name_ext())) {
-				WriteLog("! Cannot remove [to cut] tag from file with [cut] tag because inode exists: " + 
-					f.dir_name_ext() + " to: " + f2.name() + "\n");
-			}
-			else {
-				if (!RenameFile(f, f2)) {
-					RenameExt(f, f2, ".xmp");
-					WriteLog("+ Removed [to cut] tag from file with [cut] tag: " +
+		if (pos != -1) {
+			pos2 = f.name().Find("]", pos);
+			pos3 = f.name().Find("[", pos);
+			if (pos2 == -1 && pos3 > 0) pos4 = pos3 - 1;
+			else if (pos2 > 0 && pos3 == -1) pos4 = pos2;
+			else if (pos2 > 0 && pos3 > 0) pos4 = min(pos2, pos3 - 1);
+			else pos4 = -1;
+			if (pos4 != -1) {
+				if (!LockFile(lck, f)) return;
+				f2.SetName(f.name().Left(pos) + f.name().Mid(pos4 + 1));
+				if (fileOrDirExists(f2.dir_name_ext())) {
+					WriteLog("! Cannot remove [to cut] tag from file with [cut] tag because inode exists: " +
 						f.dir_name_ext() + " to: " + f2.name() + "\n");
-					f = f2;
-					if (!LockFile(lck, f)) return;
 				}
 				else {
-					WriteLog("! Cannot remove [to cut] tag from file with [cut] tag: " +
-						f.dir_name_ext() + " to: " + f2.name() + "\n");
+					if (!RenameFile(f, f2)) {
+						RenameExt(f, f2, ".xmp");
+						WriteLog("+ Removed [to cut] tag from file with [cut] tag: " +
+							f.dir_name_ext() + " to: " + f2.name() + "\n");
+						f = f2;
+						if (!LockFile(lck, f)) return;
+					}
+					else {
+						WriteLog("! Cannot remove [to cut] tag from file with [cut] tag: " +
+							f.dir_name_ext() + " to: " + f2.name() + "\n");
+					}
 				}
 			}
 		}
 		// Same process without space
 		pos = f.name().Find("[to cut");
-		pos2 = f.name().Find("]", pos);
-		pos3 = f.name().Find("[", pos);
-		if (pos2 == -1 && pos3 > 0) pos4 = pos3 - 1;
-		else if (pos2 > 0 && pos3 == -1) pos4 = pos2;
-		else if (pos2 > 0 && pos3 > 0) pos4 = min(pos2, pos3 - 1);
-		else pos4 = -1;
-		if (pos != -1 && pos4 != -1) {
-			if (!LockFile(lck, f)) return;
-			f2.SetName(f.name().Left(pos) + f.name().Mid(pos4 + 1));
-			if (fileOrDirExists(f2.dir_name_ext())) {
-				WriteLog("! Cannot remove [to cut] tag from file with [cut] tag because inode exists: " +
-					f.dir_name_ext() + " to: " + f2.name() + "\n");
-			}
-			else {
-				if (!RenameFile(f, f2)) {
-					RenameExt(f, f2, ".xmp");
-					WriteLog("+ Removed [to cut] tag from file with [cut] tag: " +
+		if (pos != -1) {
+			pos2 = f.name().Find("]", pos);
+			pos3 = f.name().Find("[", pos);
+			if (pos2 == -1 && pos3 > 0) pos4 = pos3 - 1;
+			else if (pos2 > 0 && pos3 == -1) pos4 = pos2;
+			else if (pos2 > 0 && pos3 > 0) pos4 = min(pos2, pos3 - 1);
+			else pos4 = -1;
+			if (pos != -1 && pos4 != -1) {
+				if (!LockFile(lck, f)) return;
+				f2.SetName(f.name().Left(pos) + f.name().Mid(pos4 + 1));
+				if (fileOrDirExists(f2.dir_name_ext())) {
+					WriteLog("! Cannot remove [to cut] tag from file with [cut] tag because inode exists: " +
 						f.dir_name_ext() + " to: " + f2.name() + "\n");
-					f = f2;
-					if (!LockFile(lck, f)) return;
 				}
 				else {
-					WriteLog("! Cannot remove [to cut] tag from file with [cut] tag: " +
-						f.dir_name_ext() + " to: " + f2.name() + "\n");
+					if (!RenameFile(f, f2)) {
+						RenameExt(f, f2, ".xmp");
+						WriteLog("+ Removed [to cut] tag from file with [cut] tag: " +
+							f.dir_name_ext() + " to: " + f2.name() + "\n");
+						f = f2;
+						if (!LockFile(lck, f)) return;
+					}
+					else {
+						WriteLog("! Cannot remove [to cut] tag from file with [cut] tag: " +
+							f.dir_name_ext() + " to: " + f2.name() + "\n");
+					}
 				}
 			}
 		}
@@ -486,9 +489,7 @@ void ProcessFile(const path &path1) {
 	}
 	// Ignore match
 	for (const auto &ppr : ignore_match) {
-		string s1(f.name_ext());
-		string s2(ppr.first);
-		if (isMatch(s1, s2)) {
+		if (cstring_regex_match(f.name_ext(), ppr.first)) {
 			cout << "- Ignore match: " << f.dir_name_ext() << "\n";
 			return;
 		}
@@ -531,7 +532,7 @@ void ProcessFile(const path &path1) {
 		cout << "! Overwriting file: " + fc.dir_name_ext() << "\n";
 	}
 	if (video_ext[f.ext()]) {
-		CString par = GetParByMask(f.name(), ffmpeg_par_video);
+		CString par = GetParByMask(f.name_ext(), ffmpeg_par_video);
 		if (par.IsEmpty()) {
 			cout << "! Will not process file because no mask match detected\n";
 			return;
@@ -541,7 +542,7 @@ void ProcessFile(const path &path1) {
 		ret = RunTimeout(ffmpeg_path, par, 10 * 24 * 60 * 60 * 1000);
 	}
 	if (image_ext[f.ext()]) {
-		CString par = GetParByMask(f.name(), magick_par_image);
+		CString par = GetParByMask(f.name_ext(), magick_par_image);
 		if (par.IsEmpty()) {
 			cout << "! Will not process file because no mask match detected\n";
 			return;
@@ -551,7 +552,7 @@ void ProcessFile(const path &path1) {
 		ret = RunTimeout(magick_path, par, 10 * 24 * 60 * 60 * 1000);
 	}
 	if (jpeg_ext[f.ext()]) {
-		CString par = GetParByMask(f.name(), ffmpeg_par_image);
+		CString par = GetParByMask(f.name_ext(), ffmpeg_par_image);
 		if (par.IsEmpty()) {
 			cout << "! Will not process file because no mask match detected\n";
 			return;
@@ -561,7 +562,7 @@ void ProcessFile(const path &path1) {
 		ret = RunTimeout(ffmpeg_path, par, 10 * 24 * 60 * 60 * 1000);
 	}
 	if (audio_ext[f.ext()]) {
-		CString par = GetParByMask(f.name(), ffmpeg_par_audio);
+		CString par = GetParByMask(f.name_ext(), ffmpeg_par_audio);
 		if (par.IsEmpty()) {
 			cout << "! Will not process file because no mask match detected\n";
 			return;
@@ -768,7 +769,7 @@ void LoadConfigMap(const CString &pname, const CString &pval, const CString &mna
 void LoadPar(const CString &pname, const CString &pval, const CString &mname, vector<MaskPar> &mp) {
 	if (pname == mname) {
 		++parameter_found;
-		if (pval == "#CLEAR") {
+		if (pval == "@CLEAR") {
 			mp.clear();
 		}
 		else {
@@ -865,6 +866,7 @@ void LoadConfig() {
 	// Load local config file if exists
 	if (fileExists(dir + "\\BatchCompress.pl")) {
 		WriteLog("Overriding global config with local config file: " + dir + "\n");
+		LoadConfigFile(dir + "\\BatchCompress.pl");
 	}
 	else {
 		WriteLog("Using only global config file: " + dir + "\n");

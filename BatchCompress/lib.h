@@ -1,6 +1,7 @@
 #pragma once
 
 int RemoveReadonlyAndDelete(CString dir_name_ext);
+bool cstring_regex_match(const CString &st, const CString &pattern);
 bool isMatch(const string &str, const string &pattern);
 uintmax_t FileSize2(CString dir_name_ext);
 __int64 FileSize(CString dir_name_ext);

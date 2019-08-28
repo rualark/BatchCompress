@@ -15,6 +15,13 @@ int RemoveReadonlyAndDelete(CString dir_name_ext) {
 	return DeleteFile(dir_name_ext);
 }
 
+bool cstring_regex_match(const CString &st, const CString &pattern) {
+	regex txt_regex(pattern); 
+	string s(st);
+	return regex_match(s, txt_regex);
+}
+
+// This probably does not work with '*' pattern
 bool isMatch(const string &str, const string &pattern) {
 	vector<vector<bool>> bool_array(str.size() + 1, vector<bool>(pattern.size() + 1, false));
 	//initialize boolean array to false.
