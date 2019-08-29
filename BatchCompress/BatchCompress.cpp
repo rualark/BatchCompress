@@ -224,7 +224,7 @@ void ProcessFile(const path &path1) {
 		pos = f.name().Find(" [to cut");
 		if (pos != -1) {
 			pos2 = f.name().Find("]", pos);
-			pos3 = f.name().Find("[", pos);
+			pos3 = f.name().Find("[", pos + 2);
 			if (pos2 == -1 && pos3 > 0) pos4 = pos3 - 1;
 			else if (pos2 > 0 && pos3 == -1) pos4 = pos2;
 			else if (pos2 > 0 && pos3 > 0) pos4 = min(pos2, pos3 - 1);
@@ -255,12 +255,12 @@ void ProcessFile(const path &path1) {
 		pos = f.name().Find("[to cut");
 		if (pos != -1) {
 			pos2 = f.name().Find("]", pos);
-			pos3 = f.name().Find("[", pos);
+			pos3 = f.name().Find("[", pos + 1);
 			if (pos2 == -1 && pos3 > 0) pos4 = pos3 - 1;
 			else if (pos2 > 0 && pos3 == -1) pos4 = pos2;
 			else if (pos2 > 0 && pos3 > 0) pos4 = min(pos2, pos3 - 1);
 			else pos4 = -1;
-			if (pos != -1 && pos4 != -1) {
+			if (pos4 != -1) {
 				if (!LockFile(lck, f)) return;
 				f2.SetName(f.name().Left(pos) + f.name().Mid(pos4 + 1));
 				if (fileOrDirExists(f2.dir_name_ext())) {
@@ -864,12 +864,24 @@ void LoadConfig() {
 	// Always load global config file
 	LoadConfigFile(my_dir + "\\BatchCompress.pl");
 	// Load local config file if exists
-	if (fileExists(dir + "\\BatchCompress.pl")) {
-		WriteLog("Overriding global config with local config file: " + dir + "\n");
-		LoadConfigFile(dir + "\\BatchCompress.pl");
-	}
-	else {
-		WriteLog("Using only global config file: " + dir + "\n");
+	CString ldir = dir;
+	int found = 0;
+	do {
+		cout << "Checking if config exists: " + ldir + "\\BatchCompress.pl\n";
+		if (fileExists(ldir + "\\BatchCompress.pl")) {
+			found = 1;
+			WriteLog("Overriding global config with local config file: " + ldir + "\\BatchCompress.pl\n");
+			LoadConfigFile(ldir + "\\BatchCompress.pl");
+			break;
+		}
+		int pos = ldir.ReverseFind('\\');
+		if (ldir.GetLength() > 3 && ldir.GetAt(1) == ':' && pos > 1) {
+			ldir = ldir.Left(pos);
+		}
+		else break;
+	} while (1);
+	if (!found) {
+		WriteLog("Using only global config file to process folder " + dir + "\n");
 	}
 }
 
