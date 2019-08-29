@@ -123,7 +123,7 @@ int LockFile(FileLock &lck, FileName &f) {
 		cout << "! File not found: " + f.dir_name_ext() + "\n";
 		return 0;
 	}
-	if (lck.Lock(f.dir_name() + ".lck")) {
+	if (lck.Lock(f.dir_name() + ".lck", bcid_lock.get_fname())) {
 		// Cannot lock because file is already locked
 		cout << "# Lock detected: " +
 			f.dir_name_ext() + "\n";
