@@ -899,19 +899,26 @@ int end_main(int ret_code = -1) {
 }
 
 BOOL WINAPI ConsoleHandlerRoutine(DWORD dwCtrlType) {
-	if (dwCtrlType == CTRL_CLOSE_EVENT) {
-		WriteLog("! Program aborted\n");
-		close_flag = 1;
+	if (dwCtrlType == CTRL_CLOSE_EVENT || 
+		dwCtrlType == CTRL_C_EVENT ||
+		dwCtrlType == CTRL_BREAK_EVENT ||
+		dwCtrlType == CTRL_LOGOFF_EVENT ||
+		dwCtrlType == CTRL_SHUTDOWN_EVENT ||
+		dwCtrlType == CTRL_CLOSE_EVENT) {
+		close_flag.store(1);
 		bcid_lock.Unlock();
-		return TRUE;
+		if (dwCtrlType == CTRL_CLOSE_EVENT)	WriteLog("! Program closed on CTRL_CLOSE_EVENT\n");
+		if (dwCtrlType == CTRL_C_EVENT)	WriteLog("! Program closed on CTRL_C_EVENT\n");
+		if (dwCtrlType == CTRL_BREAK_EVENT)	WriteLog("! Program closed on CTRL_BREAK_EVENT\n");
+		// Next two events are disabled for non-service application
+		if (dwCtrlType == CTRL_LOGOFF_EVENT)	WriteLog("! Program closed on CTRL_LOGOFF_EVENT\n");
+		if (dwCtrlType == CTRL_SHUTDOWN_EVENT)	WriteLog("! Program closed on CTRL_SHUTDOWN_EVENT\n");
 	}
 	return FALSE;
 }
 
 int main() {
-
   HMODULE hModule = ::GetModuleHandle(nullptr);
-
 	if (hModule == nullptr) {
 		// TODO: change error code to suit your needs
 		wprintf(L"Fatal Error: GetModuleHandle failed\n");
