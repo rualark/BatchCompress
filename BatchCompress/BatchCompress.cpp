@@ -516,7 +516,6 @@ void ProcessFile(const path &path1) {
 	}
 	// Run
 	if (!LockFile(lck, f)) return;
-	space_before_conv_noconv += size1;
 	est.Format("* Process: " + f.dir_name_ext() + " (%.1lf Mb)\n",
 		size1 / 1024.0 / 1024.0);
 	cout << est;
@@ -575,6 +574,7 @@ void ProcessFile(const path &path1) {
 		est.Format("! Error during running file " + f.dir_name_ext() + " conversion: %d\n", ret);
 		WriteLog(est);
 		if (!conv_error_noconv) return;
+		space_before_conv_noconv += size1;
 		RemoveReadonlyAndDelete(fc.dir_name_ext());
 		RemoveReadonlyAndDelete(fn.dir_name_ext());
 		if (RenameFile(f, fn)) {
@@ -587,6 +587,7 @@ void ProcessFile(const path &path1) {
 		est.Format("! File not found: " + f.dir_name_ext() + "\n");
 		WriteLog(est);
 		if (!conv_error_noconv) return;
+		space_before_conv_noconv += size1;
 		RemoveReadonlyAndDelete(fc.dir_name_ext());
 		RemoveReadonlyAndDelete(fn.dir_name_ext());
 		if (RenameFile(f, fn)) {
@@ -600,6 +601,7 @@ void ProcessFile(const path &path1) {
 		est.Format("! Resulting size of file " + f.dir_name_ext() + " too small: %lld\n", size2);
 		WriteLog(est);
 		if (!conv_error_noconv) return;
+		space_before_conv_noconv += size1;
 		RemoveReadonlyAndDelete(fc.dir_name_ext());
 		RemoveReadonlyAndDelete(fn.dir_name_ext());
 		if (RenameFile(f, fn)) {
@@ -609,6 +611,7 @@ void ProcessFile(const path &path1) {
 		return;
 	}
 	if (size2 < size1) {
+		space_before_conv_noconv += size1;
 		space_before_conv += size1;
 		space_release += size1;
 		space_release -= size2;
@@ -643,6 +646,7 @@ void ProcessFile(const path &path1) {
 		RemoveReadonlyAndDelete(f.dir_name_ext());
 	}
 	else {
+		space_before_conv_noconv += size1;
 		est.Format("- Could not compress %s better (%.0lf%% from %.1lf Mb)\n",
 			f.dir_name_ext(), size2 * 100.0 / size1, size1 / 1024.0 / 1024);
 		cout << est;
