@@ -20,6 +20,8 @@ struct MaskPar {
 	CString par;
 };
 
+enum class ConvertType {none, audio, video, image};
+
 map<CString, int> audio_ext, video_ext, jpeg_ext, image_ext, remove_ext, ignore_match;
 CString cmd_line, my_path, my_dir, dir, ffmpeg_path, magick_path, lnkedit_path, exiftool_path;
 int nRetCode = 0;
@@ -39,6 +41,7 @@ int save_exif = 0;
 int rename_xmp = 0;
 int strip_tocut = 1;
 int shorten_filenames_to = 0;
+int video_convert_only_if_size_decreases = 1;
 int bcid = 0;
 FileLock bcid_lock;
 const int MAX_BCID = 10;
@@ -196,6 +199,7 @@ CString GetParByMask(CString fname, vector<MaskPar> &mp) {
 }
 
 void ProcessFile(const path &path1) {
+	ConvertType convert_type = ConvertType::none;
 	FileLock lck;
 	CString par, st, st2, st3;
 	int ret;
@@ -222,7 +226,7 @@ void ProcessFile(const path &path1) {
 		int pos, pos2, pos3, pos4;
 		FileName f2 = f;
 		pos = f.name().Find(" [to cut");
-		if (pos != -1) {
+		if (pos != -1 && pos < f.name().Find("[cut")) {
 			pos2 = f.name().Find("]", pos);
 			pos3 = f.name().Find("[", pos + 2);
 			if (pos2 == -1 && pos3 > 0) pos4 = pos3 - 1;
@@ -253,7 +257,7 @@ void ProcessFile(const path &path1) {
 		}
 		// Same process without space
 		pos = f.name().Find("[to cut");
-		if (pos != -1) {
+		if (pos != -1 && pos < f.name().Find("[cut")) {
 			pos2 = f.name().Find("]", pos);
 			pos3 = f.name().Find("[", pos + 1);
 			if (pos2 == -1 && pos3 > 0) pos4 = pos3 - 1;
@@ -531,6 +535,7 @@ void ProcessFile(const path &path1) {
 		cout << "! Overwriting file: " + fc.dir_name_ext() << "\n";
 	}
 	if (video_ext[f.ext()]) {
+		convert_type = ConvertType::video;
 		CString par = GetParByMask(f.name_ext(), ffmpeg_par_video);
 		if (par.IsEmpty()) {
 			cout << "! Will not process file because no mask match detected\n";
@@ -541,6 +546,7 @@ void ProcessFile(const path &path1) {
 		ret = RunTimeout(ffmpeg_path, par, 10 * 24 * 60 * 60 * 1000);
 	}
 	if (image_ext[f.ext()]) {
+		convert_type = ConvertType::image;
 		CString par = GetParByMask(f.name_ext(), magick_par_image);
 		if (par.IsEmpty()) {
 			cout << "! Will not process file because no mask match detected\n";
@@ -551,6 +557,7 @@ void ProcessFile(const path &path1) {
 		ret = RunTimeout(magick_path, par, 10 * 24 * 60 * 60 * 1000);
 	}
 	if (jpeg_ext[f.ext()]) {
+		convert_type = ConvertType::image;
 		CString par = GetParByMask(f.name_ext(), ffmpeg_par_image);
 		if (par.IsEmpty()) {
 			cout << "! Will not process file because no mask match detected\n";
@@ -561,6 +568,7 @@ void ProcessFile(const path &path1) {
 		ret = RunTimeout(ffmpeg_path, par, 10 * 24 * 60 * 60 * 1000);
 	}
 	if (audio_ext[f.ext()]) {
+		convert_type = ConvertType::audio;
 		CString par = GetParByMask(f.name_ext(), ffmpeg_par_audio);
 		if (par.IsEmpty()) {
 			cout << "! Will not process file because no mask match detected\n";
@@ -610,7 +618,8 @@ void ProcessFile(const path &path1) {
 		RenameExt(f, fn, ".xmp");
 		return;
 	}
-	if (size2 < size1) {
+	if (size2 < size1 || 
+		(convert_type == ConvertType::video && !video_convert_only_if_size_decreases)) {
 		space_before_conv_noconv += size1;
 		space_before_conv += size1;
 		space_release += size1;
@@ -852,6 +861,7 @@ void LoadConfigFile(const CString &fname) {
 			LoadVar(&st2, &st3, "save_exif", &save_exif);
 			LoadVar(&st2, &st3, "rename_xmp", &rename_xmp);
 			LoadVar(&st2, &st3, "strip_tocut", &strip_tocut);
+			LoadVar(&st2, &st3, "video_convert_only_if_size_decreases", &video_convert_only_if_size_decreases);
 			LoadVar(&st2, &st3, "shorten_filenames_to", &shorten_filenames_to);
 			if (!parameter_found) {
 				WriteLog("Unrecognized parameter '" + st2 + "' = '" + st3 + "' in file " + fname + "\n");
