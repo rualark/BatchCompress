@@ -39,6 +39,7 @@ vector<MaskPar> magick_par_image;
 int process_links = 0;
 int save_exif = 0;
 int rename_xmp = 0;
+int rename_srt = 0;
 int strip_tocut = 1;
 int shorten_filenames_to = 0;
 int video_convert_only_if_size_decreases = 1;
@@ -136,10 +137,11 @@ int LockFile(FileLock &lck, FileName &f) {
 	return 1;
 }
 
-// Rename file with XMP tags (if tags are in a separate file)
+// Rename file with different extension
+// Returns 0 if successful or does not exist
 int RenameExt(FileName &f, FileName &f2, CString ext) {
 	int res = 0;
-	if (rename_xmp && fileExists(f.dir_name() + ext)) {
+	if (fileExists(f.dir_name() + ext)) {
 		if (fileExists(f2.dir_name() + ext)) {
 			RemoveReadonlyAndDelete(f2.dir_name() + ext);
 			res = rename(f.dir_name() + ext, f2.dir_name() + ext);
@@ -151,6 +153,20 @@ int RenameExt(FileName &f, FileName &f2, CString ext) {
 		}
 	}
 	return res;
+}
+
+// Rename file with XMP tags (if tags are in a separate file)
+// Returns 0 if successful or file does not exist
+int RenameXMP(FileName &f, FileName &f2) {
+	if (!rename_xmp) return 0;
+	return RenameExt(f, f2, ".xmp");
+}
+
+// Rename file with SRT subtitles
+// Returns 0 if successful or file does not exist
+int RenameSRT(FileName &f, FileName &f2) {
+	if (!rename_srt) return 0;
+	return RenameExt(f, f2, ".srt");
 }
 
 void GetBCID() {
@@ -242,7 +258,8 @@ void ProcessFile(const path &path1) {
 				}
 				else {
 					if (!RenameFile(f, f2)) {
-						RenameExt(f, f2, ".xmp");
+						RenameXMP(f, f2);
+						RenameSRT(f, f2);
 						WriteLog("+ Removed [to cut] tag from file with [cut] tag: " +
 							f.dir_name_ext() + " to: " + f2.name() + "\n");
 						f = f2;
@@ -273,7 +290,8 @@ void ProcessFile(const path &path1) {
 				}
 				else {
 					if (!RenameFile(f, f2)) {
-						RenameExt(f, f2, ".xmp");
+						RenameXMP(f, f2);
+						RenameSRT(f, f2);
 						WriteLog("+ Removed [to cut] tag from file with [cut] tag: " +
 							f.dir_name_ext() + " to: " + f2.name() + "\n");
 						f = f2;
@@ -330,7 +348,8 @@ void ProcessFile(const path &path1) {
 			}
 		}
 		if (!RenameFile(f, f2)) {
-			RenameExt(f, f2, ".xmp");
+			RenameXMP(f, f2);
+			RenameSRT(f, f2);
 			WriteLog("+ Shortened file: " + f.dir_name_ext() + " to: " + f2.name_ext() + "\n");
 			f = f2;
 			if (!LockFile(lck, f)) return;
@@ -588,7 +607,8 @@ void ProcessFile(const path &path1) {
 		if (RenameFile(f, fn)) {
 			est.Format("! Cannot rename file to " + fn.dir_name_ext() + "\n");
 		}
-		RenameExt(f, fn, ".xmp");
+		RenameXMP(f, fn);
+		RenameSRT(f, fn);
 		return;
 	}
 	if (!fileExists(fc.dir_name_ext())) {
@@ -601,7 +621,8 @@ void ProcessFile(const path &path1) {
 		if (RenameFile(f, fn)) {
 			est.Format("! Cannot rename file to " + fn.dir_name_ext() + "\n");
 		}
-		RenameExt(f, fn, ".xmp");
+		RenameXMP(f, fn);
+		RenameSRT(f, fn);
 		return;
 	}
 	long long size2 = FileSize(fc.dir_name_ext());
@@ -615,7 +636,8 @@ void ProcessFile(const path &path1) {
 		if (RenameFile(f, fn)) {
 			est.Format("! Cannot rename file to " + fn.dir_name_ext() + "\n");
 		}
-		RenameExt(f, fn, ".xmp");
+		RenameXMP(f, fn);
+		RenameSRT(f, fn);
 		return;
 	}
 	if (size2 < size1 || 
@@ -633,7 +655,8 @@ void ProcessFile(const path &path1) {
 			(space_before_conv - space_release) * 100 / (space_before_conv + 1),
 			(space_before_conv_noconv - space_release) * 100 / (space_before_conv_noconv + 1));
 		WriteLog(est);
-		RenameExt(f, fc, ".xmp");
+		RenameXMP(f, fc);
+		RenameSRT(f, fc);
 		// Copy exif, XMP and other tags inside file
 		if (jpeg_ext[f.ext()] && save_exif) {
 			par.Format("-tagsFromFile \"%s\" \"%s\"",
@@ -664,7 +687,8 @@ void ProcessFile(const path &path1) {
 		if (RenameFile(f, fn)) {
 			est.Format("! Cannot rename file to " + fn.dir_name_ext() + "\n");
 		}
-		RenameExt(f, fn, ".xmp");
+		RenameXMP(f, fn);
+		RenameSRT(f, fn);
 	}
 }
 
