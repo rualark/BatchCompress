@@ -794,7 +794,7 @@ void LoadVar(CString * sName, CString * sValue, char* sSearch, CString * Dest) {
 void LoadConfigMap(const CString &pname, const CString &pval, const CString &mname, map<CString, int> &mp) {
 	if (pname == mname) {
 		++parameter_found;
-		if (pval == "#CLEAR") {
+		if (pval == "@CLEAR") {
 			mp.clear();
 		}
 		else {
