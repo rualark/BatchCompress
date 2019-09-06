@@ -448,7 +448,7 @@ void ProcessFile(const path &path1) {
 		ret = RunTimeout(ffmpeg_path, par, 10 * 24 * 60 * 60 * 1000);
 	}
 	if (ret) {
-		est.Format("! Error during running file %s conversion: %d\n", 
+		est.Format("! Error during converting %s: %d\n", 
 			f.dir_name_ext(), ret);
 		WriteLog(est);
 		if (!conv_error_noconv) return;
@@ -464,7 +464,7 @@ void ProcessFile(const path &path1) {
 		return;
 	}
 	if (!fileExists(fc.dir_name_ext())) {
-		est.Format("! File not found: %s\n", f.dir_name_ext());
+		est.Format("! File not found: %s\n", fc.dir_name_ext());
 		WriteLog(est);
 		if (!conv_error_noconv) return;
 		space_before_conv_noconv += size1;
