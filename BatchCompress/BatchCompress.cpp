@@ -407,7 +407,7 @@ void ProcessFile(const path &path1) {
 	FileName fc = f;
 	fc.SetName(fc.name() + "-conv");
 	if (video_ext[f.ext()]) fc.SetExt(".mp4");
-	if (image_ext[f.ext()]) fc.SetExt(".jpg");
+	if (image_ext[f.ext()]) fc.SetExt(".webp");
 	if (audio_ext[f.ext()]) fc.SetExt(".mp3");
 	FileName fn = f;
 	fn.SetName(fn.name() + "-noconv");

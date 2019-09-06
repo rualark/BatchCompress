@@ -10,7 +10,7 @@ ffmpeg_par_video = .*|-i "%ifname%" -y -vf "scale=-2:'min(480,ih)'" -c:v libx265
 #ffmpeg_par_video = -analyzeduration 2147483647 -probesize 2147483647 -i "%ifname%" -y -vf "scale=-2:'min(480,ih)'" -preset slow -crf 20 -b:a 100k "%ofname%"
 
 #ffmpeg_par_image = .*|-i "%ifname%" -y -q:v 2 -vf scale='min(1920,iw)':-2 "%ofname%"
-magick_par_image = .*|convert "%ifname%" -resize 1920 "%ofname%"
+magick_par_image = .*|convert "%ifname%" -resize 1920x1080> -define webp:method=6 -quality 85 "%ofname%"
 
 # Main
 ignore_2 = 0 # Set to 1 to ignore files *_2.jpg, *_3.jpg, *_4.jpg...
@@ -37,18 +37,19 @@ remove_ext = ".peak"
 #ignore_match = "abcdef.*"
 
 # File extensions to convert to jpeg
-image_ext = ".jpg"
-image_ext = ".jpeg"
-image_ext = ".webp"
+image_ext = ".arw"
+image_ext = ".bmp"
 image_ext = ".cr2"
 image_ext = ".crw"
-image_ext = ".arw"
+image_ext = ".jpeg"
+image_ext = ".jpg"
 image_ext = ".mrw"
 image_ext = ".nef"
 image_ext = ".orf"
+image_ext = ".png"
 image_ext = ".raf"
+image_ext = ".webp"
 image_ext = ".x3f"
-image_ext = ".bmp"
 
 # File extensions to convert to mp4
 video_ext = ".3gp"
