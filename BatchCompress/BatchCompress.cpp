@@ -379,10 +379,10 @@ void ProcessFile(const path &path1) {
 			return;
 		}
 	}
-	if (ignore_2 && (f.dir_name_ext().Find("_2.jpg") != -1 || f.dir_name_ext().Find("_2.JPG") != -1 ||
-		f.dir_name_ext().Find("_3.jpg") != -1 || f.dir_name_ext().Find("_3.JPG") != -1 || 
-		f.dir_name_ext().Find("_4.jpg") != -1 || f.dir_name_ext().Find("_4.JPG") != -1 || 
-		f.dir_name_ext().Find("_5.jpg") != -1 || f.dir_name_ext().Find("_5.JPG") != -1)) {
+	if (ignore_2 && (f.ext() == ".jpg" || f.ext() == ".webp") && 
+		f.name().Mid(f.name().GetLength() - 2, 1) == "_" &&
+		atoi(f.name().Right(1)) > 1
+		) {
 		cout << "- Ignore manually processed files: " << f.dir_name_ext() << "\n";
 		return;
 	}
@@ -710,6 +710,7 @@ void LoadConfigFile(const CString &fname) {
 			LoadPar(st2, st3, "magick_par_image", magick_par_image);
 			LoadVar(&st2, &st3, "ignore_2", &ignore_2);
 			LoadVar(&st2, &st3, "rename_xmp", &rename_xmp);
+			LoadVar(&st2, &st3, "rename_srt", &rename_srt);
 			LoadVar(&st2, &st3, "strip_tocut", &strip_tocut);
 			LoadVar(&st2, &st3, "video_convert_only_if_size_decreases", &video_convert_only_if_size_decreases);
 			LoadVar(&st2, &st3, "shorten_filenames_to", &shorten_filenames_to);
