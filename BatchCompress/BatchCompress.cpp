@@ -171,7 +171,7 @@ void GetBCID() {
 	bcid = 0;
 	for (int i = 1; i < MAX_BCID; ++i) {
 		CString fname;
-		fname.Format(dir + "\\BatchCompress.%d", i);
+		fname.Format("%s\\BatchCompress.%d", dir, i);
 		if (bcid_lock.Lock(fname, bcid_st)) continue;
 		bcid = i;
 		break;
@@ -185,7 +185,7 @@ void GetBCID() {
 void CleanBCID() {
 	for (int i = 1; i < MAX_BCID; ++i) {
 		CString fname;
-		fname.Format(dir + "\\BatchCompress.%d", i);
+		fname.Format("%s\\BatchCompress.%d", dir, i);
 		RemoveReadonlyAndDelete(fname);
 	}
 }
@@ -401,8 +401,8 @@ void ProcessFile(const path &path1) {
 	}
 	// Run
 	if (!LockFile(lck, f)) return;
-	est.Format("* Process: " + f.dir_name_ext() + " (%.1lf Mb)\n",
-		size1 / 1024.0 / 1024.0);
+	est.Format("* Process: %s (%.1lf Mb)\n",
+		f.dir_name_ext(), size1 / 1024.0 / 1024.0);
 	cout << est;
 	FileName fc = f;
 	fc.SetName(fc.name() + "-conv");
@@ -448,28 +448,30 @@ void ProcessFile(const path &path1) {
 		ret = RunTimeout(ffmpeg_path, par, 10 * 24 * 60 * 60 * 1000);
 	}
 	if (ret) {
-		est.Format("! Error during running file " + f.dir_name_ext() + " conversion: %d\n", ret);
+		est.Format("! Error during running file %s conversion: %d\n", 
+			f.dir_name_ext(), ret);
 		WriteLog(est);
 		if (!conv_error_noconv) return;
 		space_before_conv_noconv += size1;
 		RemoveReadonlyAndDelete(fc.dir_name_ext());
 		RemoveReadonlyAndDelete(fn.dir_name_ext());
 		if (RenameFile(f, fn)) {
-			est.Format("! Cannot rename file to " + fn.dir_name_ext() + "\n");
+			est.Format("! Cannot rename file to %s\n",
+				fn.dir_name_ext());
 		}
 		RenameXMP(f, fn);
 		RenameSRT(f, fn);
 		return;
 	}
 	if (!fileExists(fc.dir_name_ext())) {
-		est.Format("! File not found: " + f.dir_name_ext() + "\n");
+		est.Format("! File not found: %s\n", f.dir_name_ext());
 		WriteLog(est);
 		if (!conv_error_noconv) return;
 		space_before_conv_noconv += size1;
 		RemoveReadonlyAndDelete(fc.dir_name_ext());
 		RemoveReadonlyAndDelete(fn.dir_name_ext());
 		if (RenameFile(f, fn)) {
-			est.Format("! Cannot rename file to " + fn.dir_name_ext() + "\n");
+			est.Format("! Cannot rename file to %s\n", fn.dir_name_ext());
 		}
 		RenameXMP(f, fn);
 		RenameSRT(f, fn);
@@ -477,14 +479,15 @@ void ProcessFile(const path &path1) {
 	}
 	long long size2 = FileSize(fc.dir_name_ext());
 	if (size2 < 100) {
-		est.Format("! Resulting size of file " + f.dir_name_ext() + " too small: %lld\n", size2);
+		est.Format("! Resulting size of file %s too small: %lld\n", 
+			f.dir_name_ext(), size2);
 		WriteLog(est);
 		if (!conv_error_noconv) return;
 		space_before_conv_noconv += size1;
 		RemoveReadonlyAndDelete(fc.dir_name_ext());
 		RemoveReadonlyAndDelete(fn.dir_name_ext());
 		if (RenameFile(f, fn)) {
-			est.Format("! Cannot rename file to " + fn.dir_name_ext() + "\n");
+			est.Format("! Cannot rename file to %s\n", fn.dir_name_ext());
 		}
 		RenameXMP(f, fn);
 		RenameSRT(f, fn);
@@ -517,7 +520,7 @@ void ProcessFile(const path &path1) {
 		RemoveReadonlyAndDelete(fc.dir_name_ext());
 		RemoveReadonlyAndDelete(fn.dir_name_ext());
 		if (RenameFile(f, fn)) {
-			est.Format("! Cannot rename file to " + fn.dir_name_ext() + "\n");
+			est.Format("! Cannot rename file to %s\n", fn.dir_name_ext());
 		}
 		RenameXMP(f, fn);
 		RenameSRT(f, fn);
@@ -545,10 +548,11 @@ void process() {
 		}
 	}
 	CString est;
-	est.Format("+ Processed %lld files. TF %.1lf Mb, CP %lld%%, NCP %lld%%. " + scan_dir + "\n",
+	est.Format("+ Processed %lld files. TF %.1lf Mb, CP %lld%%, NCP %lld%%. %s\n",
 		i, space_release / 1024.0 / 1024.0,
 		(space_before_conv - space_release) * 100 / (space_before_conv + 1),
-		(space_before_conv_noconv - space_release) * 100 / (space_before_conv_noconv + 1));
+		(space_before_conv_noconv - space_release) * 100 / (space_before_conv_noconv + 1),
+		scan_dir);
 	WriteLog(est);
 }
 
