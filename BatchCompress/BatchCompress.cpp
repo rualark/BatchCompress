@@ -22,8 +22,8 @@ struct MaskPar {
 
 enum class ConvertType {none, audio, video, image};
 
-map<CString, int> audio_ext, video_ext, jpeg_ext, image_ext, remove_ext, ignore_match;
-CString cmd_line, my_path, my_dir, dir, ffmpeg_path, magick_path, lnkedit_path, exiftool_path;
+map<CString, int> audio_ext, video_ext, image_ext, remove_ext, ignore_match;
+CString cmd_line, my_path, my_dir, dir, ffmpeg_path, magick_path, lnkedit_path;
 int nRetCode = 0;
 int run_minimized = 1;
 int ignore_2 = 1;
@@ -34,10 +34,7 @@ int parameter_found = 0;
 // Config
 vector<MaskPar> ffmpeg_par_audio;
 vector<MaskPar> ffmpeg_par_video;
-vector<MaskPar> ffmpeg_par_image;
 vector<MaskPar> magick_par_image;
-int process_links = 0;
-int save_exif = 0;
 int rename_xmp = 0;
 int rename_srt = 0;
 int strip_tocut = 1;
@@ -358,141 +355,6 @@ void ProcessFile(const path &path1) {
 			WriteLog("! Cannot rename (shorten) file: " + f.dir_name_ext() + " to: " + f2.name() + "\n");
 		}
 	}
-	// Fix link
-	if (f.ext() == ".lnk" && process_links == 1) {
-		if (!LockFile(lck, f)) return;
-		// Read link
-		cout << "Detected link: " << f.dir_name_ext() << "\n";
-		//cout << "Noext: " << f.dir_name() << "\n";
-		CString lnk_path = f.dir_name() + ".lnk-nfo";
-		par.Format("\"%s\" \"%s\" \"%s\"", lnkedit_path, f.dir_name_ext(), lnk_path);
-		//cout << "Run: " << my_dir + "\\lnkedit2.bat " << par << "\n";
-		ret = RunTimeout(my_dir + "\\lnkedit2.bat", par, 60 * 1000);
-		if (ret) {
-			cout << "! Error during reading lnk: " << ret << "\n";
-			space_release += FileSize(lnk_path);
-			RemoveReadonlyAndDelete(lnk_path);
-			return;
-		}
-		vector <CString> sv;
-		read_file_sv(lnk_path, sv);
-		int found = 0;
-		for (int i = 0; i < sv.size(); ++i) {
-			if (sv[i].Find(":") == -1) continue;
-			st = sv[i].Left(sv[i].Find(":"));
-			st.Trim();
-			if (st != "Target") continue;
-			st = sv[i].Mid(sv[i].Find(":") + 1);
-			st.Trim();
-			cout << "Found target: " << st << "\n";
-			found = 1;
-			break;
-		}
-		if (!found) {
-			cout << "! Error during reading lnk: no target detected\n";
-			space_release += FileSize(lnk_path);
-			RemoveReadonlyAndDelete(lnk_path);
-			return;
-		}
-		space_release += FileSize(lnk_path);
-		RemoveReadonlyAndDelete(lnk_path);
-		if (fileExists(st)) {
-			cout << "Target exists: " + st + "\n";
-			return;
-		}
-		st3 = fname_from_path(st);
-		st3.Replace("(", "\\(");
-		st3.Replace(")", "\\)");
-		st3.Replace("[", "\\[");
-		st3.Replace("]", "\\]");
-		st3.Replace("+", "\\+");
-		st2 = noext_from_path(st) + "-conv." + ext_from_path(st);
-		if (fileExists(st2)) {
-			cout << "Target exists conv: " + st2 + "\n";
-			par.Format("\"%s\" \"%s\" \"%s\"", f.dir_name_ext(), st3, fname_from_path(st2));
-			//cout << "Run: " << lnkedit_path << " " << par << "\n";
-			ret = RunTimeout(lnkedit_path, par, 60 * 1000);
-			return;
-		}
-		st2 = noext_from_path(st) + "-noconv." + ext_from_path(st);
-		if (fileExists(st2)) {
-			cout << "Target exists noconv: " + st2 + "\n";
-			par.Format("\"%s\" \"%s\" \"%s\"", f.dir_name_ext(), st3, fname_from_path(st2));
-			//cout << "Run: " << lnkedit_path << " " << par << "\n";
-			ret = RunTimeout(lnkedit_path, par, 60 * 1000);
-			return;
-		}
-		st2 = noext_from_path(st) + "-conv.jpg";
-		if (fileExists(st2)) {
-			cout << "Target exists conv: " + st2 + "\n";
-			par.Format("\"%s\" \"%s\" \"%s\"", f.dir_name_ext(), st3, fname_from_path(st2));
-			//cout << "Run: " << lnkedit_path << " " << par << "\n";
-			ret = RunTimeout(lnkedit_path, par, 60 * 1000);
-			return;
-		}
-		st2 = noext_from_path(st) + "-noconv.jpg";
-		if (fileExists(st2)) {
-			cout << "Target exists noconv: " + st2 + "\n";
-			par.Format("\"%s\" \"%s\" \"%s\"", f.dir_name_ext(), st3, fname_from_path(st2));
-			//cout << "Run: " << lnkedit_path << " " << par << "\n";
-			ret = RunTimeout(lnkedit_path, par, 60 * 1000);
-			return;
-		}
-		cout << "Could not detect similar file\n";
-		//abort();
-		return;
-	}
-	// Copy file to link
-	if (f.ext() == ".lnk" && process_links == 2) {
-		if (!LockFile(lck, f)) return;
-		// Read link
-		cout << "Detected link: " << f.dir_name_ext() << "\n";
-		//cout << "Noext: " << f.dir_name() << "\n";
-		CString lnk_path = f.dir_name() + ".lnk-nfo";
-		par.Format("\"%s\" \"%s\" \"%s\"", lnkedit_path, f.dir_name_ext(), lnk_path);
-		//cout << "Run: " << my_dir + "\\lnkedit2.bat " << par << "\n";
-		ret = RunTimeout(my_dir + "\\lnkedit2.bat", par, 60 * 1000);
-		if (ret) {
-			cout << "! Error during reading lnk: " << ret << "\n";
-			space_release += FileSize(lnk_path);
-			RemoveReadonlyAndDelete(lnk_path);
-			return;
-		}
-		vector <CString> sv;
-		read_file_sv(lnk_path, sv);
-		int found = 0;
-		for (int i = 0; i < sv.size(); ++i) {
-			if (sv[i].Find(":") == -1) continue;
-			st = sv[i].Left(sv[i].Find(":"));
-			st.Trim();
-			if (st != "Target") continue;
-			st = sv[i].Mid(sv[i].Find(":") + 1);
-			st.Trim();
-			cout << "Found target: " << st << "\n";
-			found = 1;
-			break;
-		}
-		if (!found) {
-			cout << "! Error during reading lnk: no target detected\n";
-			space_release += FileSize(lnk_path);
-			RemoveReadonlyAndDelete(lnk_path);
-			return;
-		}
-		space_release += FileSize(lnk_path);
-		RemoveReadonlyAndDelete(lnk_path);
-		if (fileExists(st)) {
-			cout << "Target exists: " + st + "\n";
-			st3 = f.dir_name_ext();
-			st3.Replace(".lnk", "");
-			space_release += FileSize(f.dir_name_ext());
-			space_release -= FileSize(st);
-			copy(st.GetBuffer(), st3.GetBuffer());
-			RemoveReadonlyAndDelete(f.dir_name_ext());
-			return;
-		}
-		// Do nothing if link is bad
-		return;
-	}
 	// Remove file
 	if (remove_ext[f.ext()]) {
 		WriteLog("+ Remove file: " + f.dir_name_ext() + "\n");
@@ -524,7 +386,7 @@ void ProcessFile(const path &path1) {
 		cout << "- Ignore manually processed files: " << f.dir_name_ext() << "\n";
 		return;
 	}
-	if (!video_ext[f.ext()] && !image_ext[f.ext()] && !jpeg_ext[f.ext()] && !audio_ext[f.ext()]) {
+	if (!video_ext[f.ext()] && !image_ext[f.ext()] && !audio_ext[f.ext()]) {
 		cout << "- Ignore ext: " << f.dir_name_ext() << "\n";
 		return;
 	}
@@ -545,7 +407,6 @@ void ProcessFile(const path &path1) {
 	FileName fc = f;
 	fc.SetName(fc.name() + "-conv");
 	if (video_ext[f.ext()]) fc.SetExt(".mp4");
-	if (jpeg_ext[f.ext()]) fc.SetExt(".jpg");
 	if (image_ext[f.ext()]) fc.SetExt(".jpg");
 	if (audio_ext[f.ext()]) fc.SetExt(".mp3");
 	FileName fn = f;
@@ -574,17 +435,6 @@ void ProcessFile(const path &path1) {
 		par.Replace("%ifname%", f.dir_name_ext());
 		par.Replace("%ofname%", fc.dir_name_ext());
 		ret = RunTimeout(magick_path, par, 10 * 24 * 60 * 60 * 1000);
-	}
-	if (jpeg_ext[f.ext()]) {
-		convert_type = ConvertType::image;
-		CString par = GetParByMask(f.name_ext(), ffmpeg_par_image);
-		if (par.IsEmpty()) {
-			cout << "! Will not process file because no mask match detected\n";
-			return;
-		}
-		par.Replace("%ifname%", f.dir_name_ext());
-		par.Replace("%ofname%", fc.dir_name_ext());
-		ret = RunTimeout(ffmpeg_path, par, 10 * 24 * 60 * 60 * 1000);
 	}
 	if (audio_ext[f.ext()]) {
 		convert_type = ConvertType::audio;
@@ -657,24 +507,6 @@ void ProcessFile(const path &path1) {
 		WriteLog(est);
 		RenameXMP(f, fc);
 		RenameSRT(f, fc);
-		// Copy exif, XMP and other tags inside file
-		if (jpeg_ext[f.ext()] && save_exif) {
-			par.Format("-tagsFromFile \"%s\" \"%s\"",
-				f.dir_name_ext(), fc.dir_name_ext());
-			ret = RunTimeout(exiftool_path, par, 10 * 24 * 60 * 60 * 1000);
-			if (ret) {
-				est.Format("! Error copying exif tags: %d\n", ret);
-				cout << est;
-				RemoveReadonlyAndDelete(fc.dir_name_ext());
-				return;
-			}
-			if (!fileExists(fc.dir_name_ext() + "_original")) {
-				cout << "! File not found: " + fc.dir_name_ext() << "_original\n";
-				RemoveReadonlyAndDelete(fc.dir_name_ext());
-				return;
-			}
-			RemoveReadonlyAndDelete(fc.dir_name_ext() + "_original");
-		}
 		RemoveReadonlyAndDelete(f.dir_name_ext());
 	}
 	else {
@@ -742,7 +574,7 @@ void ParseCommandLine() {
 	if (dir.IsEmpty()) {
 		dir = cur_dir;
 	}
-	cout << "This application compresses all video and jpeg files in folder recursively and removes source files if compressed to smaller size\n";
+	cout << "This application compresses audio, video and jpeg files in folder recursively and removes source files if compressed to smaller size\n";
 	cout << "Usage: [folder]\n";
 	cout << "If started without parameter, will process current folder\n";
 	cout << "Program path: " << my_path << "\n";
@@ -752,7 +584,6 @@ void ParseCommandLine() {
 	ffmpeg_path = my_dir + "\\ffmpeg_bc.exe";
 	magick_path = my_dir + "\\magick.exe";
 	lnkedit_path = my_dir + "\\lnkedit.exe";
-	exiftool_path = my_dir + "\\exiftool.exe";
 	SetCurrentDirectory(my_dir);
 	// Check exists
 	if (!fileExists(ffmpeg_path)) {
@@ -773,8 +604,6 @@ void ParseCommandLine() {
 }
 
 void Init() {
-	jpeg_ext[".jpg"] = 1;
-	jpeg_ext[".jpeg"] = 1;
 }
 
 void LoadVar(CString * sName, CString * sValue, char* sSearch, int * Dest) {
@@ -878,11 +707,8 @@ void LoadConfigFile(const CString &fname) {
 			LoadConfigMap(st2, st3, "ignore_match", ignore_match);
 			LoadPar(st2, st3, "ffmpeg_par_audio", ffmpeg_par_audio);
 			LoadPar(st2, st3, "ffmpeg_par_video", ffmpeg_par_video);
-			LoadPar(st2, st3, "ffmpeg_par_image", ffmpeg_par_image);
 			LoadPar(st2, st3, "magick_par_image", magick_par_image);
 			LoadVar(&st2, &st3, "ignore_2", &ignore_2);
-			LoadVar(&st2, &st3, "process_links", &process_links);
-			LoadVar(&st2, &st3, "save_exif", &save_exif);
 			LoadVar(&st2, &st3, "rename_xmp", &rename_xmp);
 			LoadVar(&st2, &st3, "strip_tocut", &strip_tocut);
 			LoadVar(&st2, &st3, "video_convert_only_if_size_decreases", &video_convert_only_if_size_decreases);
