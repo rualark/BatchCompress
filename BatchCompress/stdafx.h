@@ -50,8 +50,8 @@
 using namespace std;
 #include <chrono>
 using namespace std::chrono;
-using namespace std::tr2::sys;
-// using namespace std::filesystem;
+//using namespace std::tr2::sys;
+using namespace filesystem;
 #include "dirent.h"
 #include <windows.h>
 #include <tlhelp32.h>

@@ -38,6 +38,7 @@ vector<MaskPar> magick_par_image;
 int rename_xmp = 0;
 int rename_srt = 0;
 int strip_tocut = 1;
+int append_date_to_short_filenames = 0;
 int shorten_filenames_to = 0;
 int video_convert_only_if_size_decreases = 1;
 int bcid = 0;
@@ -66,7 +67,9 @@ void WriteLogShared(CString st) {
 }
 
 void WriteLog(CString st) {
-	CString st2 = CTime::GetCurrentTime().Format("%Y-%m-%d %H:%M:%S") + " " + st;
+	CString st2;
+	st2.Format("%s/%d %s", 
+		CTime::GetCurrentTime().Format("%Y-%m-%d %H:%M:%S"), bcid, st);
 	//CString st3 = CTime::GetCurrentTime().Format("%Y-%m-%d %H:%M:%S") + " " + dir.Left(2) + " " + st;
 	DWORD dwWritten; // number of bytes written to file
 	HANDLE hFile;
@@ -405,15 +408,23 @@ void ProcessFile(const path &path1) {
 		f.dir_name_ext(), size1 / 1024.0 / 1024.0);
 	cout << est;
 	FileName fc = f;
+	FileName fn = f;
+	if (append_date_to_short_filenames && f.name_ext().GetLength() < 15) {
+		CString sdate;
+		sdate = CTime::GetCurrentTime().Format("-%Y%m%d");
+		fc.SetName(fc.name() + sdate);
+		fn.SetName(fn.name() + sdate);
+		//cout << "! Appending date: " + fc.dir_name_ext() << "\n";
+	}
 	fc.SetName(fc.name() + "-conv");
 	if (video_ext[f.ext()]) fc.SetExt(".mp4");
 	if (image_ext[f.ext()]) fc.SetExt(".webp");
 	if (audio_ext[f.ext()]) fc.SetExt(".mp3");
-	FileName fn = f;
 	fn.SetName(fn.name() + "-noconv");
 	if (fileExists(fc.dir_name_ext())) {
 		cout << "! Overwriting file: " + fc.dir_name_ext() << "\n";
 	}
+	ret = 1;
 	if (video_ext[f.ext()]) {
 		convert_type = ConvertType::video;
 		CString par = GetParByMask(f.name_ext(), ffmpeg_par_video);
@@ -543,6 +554,7 @@ void process() {
 		path lpath = it->path();
 		if (!is_directory(lpath)) {
 			++i;
+			//cout << "File " << lpath << " size: " << it->path;
 			ProcessFile(lpath);
 			if (nRetCode) return;
 		}
@@ -714,6 +726,7 @@ void LoadConfigFile(const CString &fname) {
 			LoadPar(st2, st3, "magick_par_image", magick_par_image);
 			LoadVar(&st2, &st3, "ignore_2", &ignore_2);
 			LoadVar(&st2, &st3, "rename_xmp", &rename_xmp);
+			LoadVar(&st2, &st3, "append_date_to_short_filenames", &append_date_to_short_filenames);
 			LoadVar(&st2, &st3, "rename_srt", &rename_srt);
 			LoadVar(&st2, &st3, "strip_tocut", &strip_tocut);
 			LoadVar(&st2, &st3, "video_convert_only_if_size_decreases", &video_convert_only_if_size_decreases);
