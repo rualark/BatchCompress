@@ -224,7 +224,7 @@ void ProcessFile(const path &path1) {
 		f.FromPath(path1);
 	}
 	catch (...) {
-		WriteLog("WARNING! Next file is unreadable probably because long file name length. Please correct.\n");
+		WriteLog("WARNING! Next file is unreadable probably because long file name length or wrong symbol. Please correct.\n");
 		getchar();
 		return;
 	}
