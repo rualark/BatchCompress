@@ -22,7 +22,7 @@ struct MaskPar {
 
 enum class ConvertType {none, audio, video, image};
 
-map<CString, int> audio_ext, video_ext, image_ext, remove_ext, ignore_match;
+map<CString, int> audio_ext, video_ext, image_ext, remove_ext, ignore_match, add_dir_pattern;
 CString cmd_line, my_path, my_dir, dir, ffmpeg_path, magick_path, lnkedit_path;
 int nRetCode = 0;
 int run_minimized = 1;
@@ -40,7 +40,9 @@ int rename_srt = 0;
 int strip_tocut = 1;
 int append_date_to_short_filenames = 0;
 int shorten_filenames_to = 0;
+int add_dir_to_short_fname = 0;
 int video_convert_only_if_size_decreases = 1;
+int no_processing = 0;
 int bcid = 0;
 FileLock bcid_lock;
 const int MAX_BCID = 10;
@@ -365,6 +367,24 @@ void ProcessFile(const path &path1) {
 		RemoveReadonlyAndDelete(f.dir_name_ext());
 		return;
 	}
+	if (!video_ext[f.ext()] && !image_ext[f.ext()] && !audio_ext[f.ext()]) {
+		cout << "- Ignore ext: " << f.dir_name_ext() << "\n";
+		return;
+	}
+	// Ignore match
+	for (const auto& ppr : ignore_match) {
+		if (cstring_regex_match(f.name_ext(), ppr.first)) {
+			cout << "- Ignore match: " << f.dir_name_ext() << "\n";
+			return;
+		}
+	}
+	if (ignore_2 && (f.ext() == ".jpg" || f.ext() == ".webp") &&
+		f.name().Mid(f.name().GetLength() - 2, 1) == "_" &&
+		atoi(f.name().Right(1)) > 1
+		) {
+		cout << "- Ignore manually processed files: " << f.dir_name_ext() << "\n";
+		return;
+	}
 	// Detects "-conv" substring in filename or dirname
 	if (f.dir_name_ext().Find("-conv") != -1) {
 		cout << "- Ignore converted: " << f.dir_name_ext() << "\n";
@@ -375,22 +395,56 @@ void ProcessFile(const path &path1) {
 		cout << "- Ignore noconv: " << f.dir_name_ext() << "\n";
 		return;
 	}
-	// Ignore match
-	for (const auto &ppr : ignore_match) {
-		if (cstring_regex_match(f.name_ext(), ppr.first)) {
-			cout << "- Ignore match: " << f.dir_name_ext() << "\n";
-			return;
+	if (add_dir_to_short_fname && f.name().GetLength() <= add_dir_to_short_fname && !f.dir().IsEmpty()) {
+		if (!LockFile(lck, f)) return;
+		const int max_add_len = 80 - add_dir_to_short_fname;
+		CString short_dir;
+		// First try to get pattern
+		for (const auto& ppr : add_dir_pattern) {
+			auto match = cstring_regex_search(f.dir(), ppr.first);
+			if (!match.empty()) {
+				short_dir = string(match[1]).c_str();
+				short_dir = short_dir.Left(max_add_len);
+				//cout << "  ADP match: " << short_dir << " " << f.dir_name_ext() << "\n";
+			}
+		}
+		// If we could not find pattern, add dirs
+		if (short_dir.IsEmpty()) {
+			vector<CString> dirs = f.dirs();
+			// Ending of last path entry
+			short_dir = dirs.back().Left(max_add_len);
+			// Use longer part if possible
+			if (dirs.size() > 1 && dirs.back().GetLength() < max_add_len - 1) {
+				short_dir = dirs[dirs.size() - 2].Left(max_add_len - 1 - dirs.back().GetLength()) + '_' + dirs.back();
+			}
+		}
+		// Check if we already have this name in any case
+		CString name_lower = f.name();
+		CString short_dir_lower = short_dir;
+		if (name_lower.MakeLower().Find(short_dir_lower.MakeLower()) == -1) {
+			FileName f2 = f;
+			f2.SetName(short_dir + "-" + f.name());
+			if (!fileOrDirExists(f2.dir_name_ext())) {
+				if (!RenameFile(f, f2)) {
+					RenameXMP(f, f2);
+					RenameSRT(f, f2);
+					WriteLog("+ Added dir to file name: " + f.dir_name_ext() + " to: " + f2.name_ext() + "\n");
+					f = f2;
+				}
+				else {
+					WriteLog("! Cannot rename (add dir) file: " + f.dir_name_ext() + " to: " + f2.name() + "\n");
+				}
+			}
+			else {
+				WriteLog("! Cannot rename (add dir) file because target exists: " + f.dir_name_ext() + " to: " + f2.name() + "\n");
+			}
 		}
 	}
-	if (ignore_2 && (f.ext() == ".jpg" || f.ext() == ".webp") && 
-		f.name().Mid(f.name().GetLength() - 2, 1) == "_" &&
-		atoi(f.name().Right(1)) > 1
-		) {
-		cout << "- Ignore manually processed files: " << f.dir_name_ext() << "\n";
-		return;
-	}
-	if (!video_ext[f.ext()] && !image_ext[f.ext()] && !audio_ext[f.ext()]) {
-		cout << "- Ignore ext: " << f.dir_name_ext() << "\n";
+	// Run
+	if (no_processing) {
+		est.Format("* No process: %s\n",
+			f.dir_name_ext());
+		cout << est;
 		return;
 	}
 	if (!fileExists(f.dir_name_ext())) {
@@ -402,11 +456,10 @@ void ProcessFile(const path &path1) {
 		cout << "Ignore small size: " << f.dir_name_ext() << ": " << size1 << "\n";
 		return;
 	}
-	// Run
-	if (!LockFile(lck, f)) return;
 	est.Format("* Process: %s (%.1lf Mb)\n",
 		f.dir_name_ext(), size1 / 1024.0 / 1024.0);
 	cout << est;
+	if (!LockFile(lck, f)) return;
 	FileName fc = f;
 	FileName fn = f;
 	if (append_date_to_short_filenames && f.name_ext().GetLength() < 15) {
@@ -708,6 +761,7 @@ void LoadConfigFile(const CString &fname) {
 			st3 = st.Mid(pos + 1);
 			st2.Trim();
 			st3.Trim();
+			// Remove starting and trailing double quotes
 			if (st3[0] == '"' && st3[st3.GetLength() - 1] == '"') {
 				st3 = st3.Mid(1, st3.GetLength() - 2);
 			}
@@ -721,6 +775,7 @@ void LoadConfigFile(const CString &fname) {
 			LoadConfigMap(st2, st3, "audio_ext", audio_ext);
 			LoadConfigMap(st2, st3, "remove_ext", remove_ext);
 			LoadConfigMap(st2, st3, "ignore_match", ignore_match);
+			LoadConfigMap(st2, st3, "add_dir_pattern", add_dir_pattern);
 			LoadPar(st2, st3, "ffmpeg_par_audio", ffmpeg_par_audio);
 			LoadPar(st2, st3, "ffmpeg_par_video", ffmpeg_par_video);
 			LoadPar(st2, st3, "magick_par_image", magick_par_image);
@@ -729,8 +784,10 @@ void LoadConfigFile(const CString &fname) {
 			LoadVar(&st2, &st3, "append_date_to_short_filenames", &append_date_to_short_filenames);
 			LoadVar(&st2, &st3, "rename_srt", &rename_srt);
 			LoadVar(&st2, &st3, "strip_tocut", &strip_tocut);
+			LoadVar(&st2, &st3, "no_processing", &no_processing);
 			LoadVar(&st2, &st3, "video_convert_only_if_size_decreases", &video_convert_only_if_size_decreases);
 			LoadVar(&st2, &st3, "shorten_filenames_to", &shorten_filenames_to);
+			LoadVar(&st2, &st3, "add_dir_to_short_fname", &add_dir_to_short_fname);
 			if (!parameter_found) {
 				WriteLog("Unrecognized parameter '" + st2 + "' = '" + st3 + "' in file " + fname + "\n");
 			}

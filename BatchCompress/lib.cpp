@@ -2,6 +2,7 @@
 // PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
 
 #include "stdafx.h"
+#include "lib.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -15,10 +16,18 @@ int RemoveReadonlyAndDelete(CString dir_name_ext) {
 	return DeleteFile(dir_name_ext);
 }
 
-bool cstring_regex_match(const CString &st, const CString &pattern) {
-	regex txt_regex(pattern); 
+bool cstring_regex_match(const CString& st, const CString& pattern) {
+	regex txt_regex(pattern);
 	string s(st);
 	return regex_match(s, txt_regex);
+}
+
+smatch cstring_regex_search(const CString& st, const CString& pattern) {
+	regex txt_regex(pattern);
+	string s(st);
+	smatch match;
+	regex_search(s, match, txt_regex);
+	return match;
 }
 
 // This probably does not work with '*' pattern
@@ -174,3 +183,26 @@ CString bname_from_path(CString path)
 	return path2;
 }
 
+vector<CString> Tokenize(const CString& s, const CString& delim) {
+	vector<CString> tokens;
+	CString s2 = s;
+	int pos;
+	int end;
+	tokens.clear();
+
+	while (!s2.IsEmpty()) {
+		pos = s2.FindOneOf(delim);
+		end = pos;
+		if (end == -1) end = s2.GetLength();
+		if (end) {
+			tokens.push_back(s2.Left(end));
+		}
+		else {
+			tokens.push_back("");
+		}
+		s2.Delete(0, end + 1);
+		// If last token saved, but last character was delimiter, push empty token
+		if (s2.IsEmpty() && pos != -1) tokens.push_back("");
+	}
+	return tokens;
+}
